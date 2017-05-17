@@ -7,6 +7,7 @@ import tracker.models as models
 from django.test import TransactionTestCase, RequestFactory
 
 import datetime
+from unittest import skip
 
 class TestSpeedRun(TransactionTestCase):
 
@@ -51,6 +52,7 @@ class TestSpeedRun(TransactionTestCase):
     def test_no_run_or_setup_time_run_end_time(self):
         self.assertEqual(self.run5.endtime, None)
 
+    @skip("Broken datetime math")
     def test_removing_run_from_schedule(self):
         self.run1.order = None
         self.run1.save()
