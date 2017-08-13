@@ -1,57 +1,70 @@
 {% extends "base.html" %}
 {% load donation_tags %}
 {% load i18n %}
-
+{% load staticfiles %}
 
 {% block title %}
-        {{ event.name|title }} -- Donate
+    {{ event.name|title }} -- Donate
 {% endblock %}
 
 {% block head %}
   <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}ply.css" />
   <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}donate.css" />
 
-  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:400,700' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:400,700' rel='stylesheet' type='text/css'>
 
   <script src="{{ STATIC_URL }}jquery.formset.js"></script>
   <script src="{{ STATIC_URL }}donationbids.js"></script>
   <script src="{{ STATIC_URL }}Ply.min.js"></script>
 
-  <script>
+    <script>
+        BIDS = {{ bidsJson|safe }};
+        PRIZES = {{ ticketPrizesJson|safe }};
 
+        donationTotal = 0;
+        totalBidsAllocated = 0;
+        totalPrizeAllocated = 0;
 
-    BIDS = {{ bidsJson|safe }};
-    PRIZES = {{ ticketPrizesJson|safe }};
-
-    donationTotal = 0;
-    totalBidsAllocated = 0;
-    totalPrizeAllocated = 0;
-
-    function bidLabel(bid) {
-      return bid['label'];
-    }
-
-    function bidDetailText(bid) {
-
-      var parents = Array();
-
-      if ('parent' in bid)
-      {
-        var parent = bid['parent'];
-        while (parent != null) {
-          parents.push(parent);
-          if ('parent' in parent) {
-            parent = parent['parent'];
-          } else {
-            parent = null;
-          }
+        function bidLabel(bid) {
+            return bid['label'];
         }
-        parents.reverse();
-      }
 
-      parents.push(bid);
+        function bidDetailText(bid) {
 
-      var text = "";
+            var parents = Array();
+
+            if ('parent' in bid) {
+                var parent = bid['parent'];
+                while (parent != null) {
+                    parents.push(parent);
+                    if ('parent' in parent) {
+                        parent = parent['parent'];
+                    } else {
+                        parent = null;
+                    }
+                }
+                parents.reverse();
+            }
+
+            parents.push(bid);
+
+            var text = "";
+
+            for (var i = 0; i < parents.length; ++i) {
+                text += "<ul><li>"
+                text += parents[i]['name'];
+
+                if (parents[i]['description']) {
+                    text += "<br />Description: " + parents[i]['description'];
+                }
+            }
+
+            for (var i = 0; i < parents.length; ++i) {
+                text += "</li></ul>";
+            }
+
+            return text;
+        }
 
       for (var i = 0; i < parents.length; ++i)
       {
@@ -64,84 +77,84 @@
         } else {
           text += '<p class="mf_description-selected">You have selected <b>' + parents[i]['name'] + '</b> for this choice.</p>';
         }
-      }
 
       return text;
     }
 
-    var donationBidsFilter = new MegaFilter( BIDS, ["suggested", 'custom'], ['name', 'description', 'runname'], bidLabel, bidDetailText);
+        function bidsAmountUpdate() {
+            {% if hasBids %}
+                totalBidsAllocated = 0;
+                $(".cdonationbidamount").each(function (i, obj) {
+                    var num = parseFloat($(obj).val());
+                    if (!isNaN(num) && num > 0) {
+                        totalBidsAllocated += num;
+                    }
+                });
 
-    function prizeLabel(prize) {
-      var result = prize['name'] + ' $' + prize['minimumbid']; // etc...
-      if (prize['maximumbid'] !== null && prize['maximumbid'] != prize['minimumbid']) {
-        result += ' - $' + prize['maximumbid'];
-      }
-      if (prize['sumdonations']) {
-        result += ' (sum)';
-      }
-      return result;
-    }
+                setBidsAmountDisplay();
+            {% endif %}
+        }
 
-    function prizeDescription(prize) {
-      return prize['description'];
-    }
+        function setBidsAmountDisplay() {
+            donationTotal = parseFloat($("#iDonationAmount").val());
 
-    var prizeFilter = new MegaFilter( PRIZES, null, ['name', 'description'], prizeLabel, prizeDescription);
+            if (isNaN(donationTotal)) {
+                donationTotal = 0;
+            }
 
-    function bidsAmountUpdate() {
-      {% if hasBids %}
-        totalBidsAllocated = 0;
-        $(".cdonationbidamount").each(function(i, obj) {
-          var num = parseFloat($(obj).val());
-          if (!isNaN(num) && num > 0)
-          {
-            totalBidsAllocated += num;
-          }
-        });
+            var txtColor = "Black";
 
-        setBidsAmountDisplay();
-      {% endif %}
-    }
+            if (totalBidsAllocated > donationTotal) {
+                txtColor = "Red";
+            }
 
-    function setBidsAmountDisplay() {
-      donationTotal = parseFloat($("#iDonationAmount").val());
+            var $totalallocated = $("#totalallocated");
+            $totalallocated.get(0).style.color = txtColor;
+            $totalallocated.html(totalBidsAllocated.toFixed(2));
+            $("#donationtotal").html(donationTotal.toFixed(2));
 
-      if (isNaN(donationTotal)) {
-        donationTotal = 0;
-      }
+            var $totalremaining = $("#totalremaining");
+            $totalremaining.html((donationTotal - totalBidsAllocated).toFixed(2));
+            $totalremaining.get(0).style.color = txtColor;
+        }
 
-      var txtColor = "Black";
+        function prizeAmountUpdate() {
+            {% if hasTicketPrizes %}
+                totalPrizeAllocated = 0;
+                $(".cprizeamount").each(function (i, obj) {
+                    var num = parseFloat($(obj).val());
+                    if (!isNaN(num) && num > 0) {
+                        totalPrizeAllocated += num;
+                    }
+                });
 
-      if (totalBidsAllocated > donationTotal) {
-        txtColor = "Red";
-      }
+                setPrizeAmountDisplay();
+            {% endif %}
+        }
 
-      $("#totalallocated").get(0).style.color = txtColor;
-      $("#totalallocated").html(totalBidsAllocated.toFixed(2));
-      $("#donationtotal").html(donationTotal.toFixed(2));
+        function setPrizeAmountDisplay() {
 
-      $("#totalremaining").html((donationTotal - totalBidsAllocated).toFixed(2));
-      $("#totalremaining").get(0).style.color = txtColor;
-    }
+            donationTotal = parseFloat($("#iDonationAmount").val());
 
-    function prizeAmountUpdate() {
-      {% if hasTicketPrizes %}
-        totalPrizeAllocated = 0;
-        $(".cprizeamount").each(function(i, obj) {
-          var num = parseFloat($(obj).val());
-          if (!isNaN(num) && num > 0)
-          {
-            totalPrizeAllocated += num;
-          }
-        });
+            if (isNaN(donationTotal)) {
+                donationTotal = 0;
+            }
 
-        setPrizeAmountDisplay();
-      {% endif %}
-    }
+            var txtColor = "Black";
 
-    function setPrizeAmountDisplay() {
+            if (totalPrizeAllocated > donationTotal) {
+                txtColor = "Red";
+            }
 
-      donationTotal = parseFloat($("#iDonationAmount").val());
+            var $totalprizeallocated = $("#totalprizeallocated");
+            $totalprizeallocated.get(0).style.color = txtColor;
+            $totalprizeallocated.html(totalPrizeAllocated.toFixed(2));
+            $("#prizedonationtotal").html(donationTotal.toFixed(2));
+
+            var $totalprizeremaining = $("#totalprizeremaining");
+            $totalprizeremaining.html((donationTotal - totalPrizeAllocated).toFixed(2));
+            $totalprizeremaining.get(0).style.color = txtColor;
+        }
 
       if (isNaN(donationTotal)) {
         donationTotal = 0;
@@ -186,39 +199,38 @@
               window.alert("Please enter a positive amount to put towards this bid.");
               return false;
             }
-          }
 
-          if (!($(idInput).val())) {
-            validBids = false;
-          }
-        }
-      });
-
-      var validPrize = true;
-      var validPrizeAmount = true;
-      var enoughPrizeMoney = true;
-
-      $(".toplevelprizeticketformsetform").each(function(i, obj) {
-        idInput = $(obj).find(".mf_selection").get(0);
-        amountInput = $(obj).find(".cprizeamount").get(0);
-
-        if (($(amountInput).val() || $(idInput).val())){
-
-          prize = prizeFilter.getObjectById($(idInput).val());
-
-          if (!($(amountInput).val())) {
-            validPrizeAmount = false;
-          }
-          else {
-            if ($(amountInput).val() < 0) {
-              enoughPrizeMoney = false;
-              window.alert("Please enter a non-negative amount.");
-              return false;
+            if (!validBidsAmount) {
+                window.alert("Must input an amount to assign to the bid.");
+                return false;
             }
-            else if (!prize['sumdonations'] && $(amountInput).val() < prize['minimumbid']) {
-              enoughPrizeMoney = false;
-              window.alert("Must donate at least $" + String(prize['minimumbid']) + " to be eligible for " + prize['name']);
-              return false;
+
+            if (!validPrizeAmount) {
+                window.alert("Must input an amount to assign to the prize.");
+                return false;
+            }
+
+            if (!validBids) {
+                window.alert("Must select a bid.");
+                return false;
+            }
+
+            if (!validPrize) {
+                window.alert("Must select a prize.");
+                return false;
+            }
+
+            if (!enoughBidMoney) {
+                return false;
+            }
+
+            if (!enoughPrizeMoney) {
+                return false;
+            }
+
+            if (isNaN(donationTotal) || donationTotal <= 0) {
+                window.alert("Donation value must be a positive number.");
+                return false;
             }
           }
           if (!($(idInput).val())) {
@@ -319,35 +331,84 @@
         });
       });
 
-      $(".mf_newoption").each(function(i, obj) {
-        $(obj).hide();
-      });
+            if (totalBidsAllocated > donationTotal) {
+                window.alert("Total allocated must be less than donation amount.");
+                return false;
+            }
 
-      $(".mf_widget.mf_model_prize").each(function(i, obj) {
-        prizeFilter.applyToWidget(obj);
-      });
+            return true;
+        }
 
+        function createNewOptionCallback(obj) {
+            var fieldDiv = $(obj).find(".mf_newoption").get(0);
 
-      $(".cdonationbidamount").each(function(i, obj) {
-        $(obj).unbind();
-        $(obj).bind("keyup input", bidsAmountUpdate);
-      });
+            return function (bid) {
+                if ("custom" in bid) {
+                    $(fieldDiv).show();
+                } else {
+                    $(fieldDiv).hide();
+                }
+            }
+        }
 
-      $(".cprizeamount").each(function(i, obj) {
-        $(obj).unbind();
-        $(obj).bind("keyup input", prizeAmountUpdate);
-      });
+        function onAddBidAssignmentWidget(obj) {
+            var widgetDiv = $(obj).find(".mf_widget.mf_model_bidtarget").get(0);
+            console.log('Here')
+            donationBidsFilter.applyToWidget(widgetDiv, createNewOptionCallback(obj));
+            numBlocks = $(".topleveldonationbidsformsetform").length;
+            if (numBlocks >= 10) {
+                $(".add-row").css("display", "none");
+            }
+        }
 
-      $("#iDonationAmount").each(function(i, obj) {
-        $(obj).unbind();
-        $(obj).bind("keyup input", function(){ bidsAmountUpdate(); prizeAmountUpdate(); });
-      });
+        function onAddPrizeAssignmentWidget(obj) {
+            var widgetDiv = $(obj).find(".mf_widget.mf_model_prize").get(0);
+            prizeFilter.applyToWidget(widgetDiv);
+            numBlocks = $(".toplevelprizeticketformsetform").length;
+            if (numBlocks >= 10) {
+                $(".add-row").css("display", "none");
+            }
+        }
 
-      bidsAmountUpdate();
-      prizeAmountUpdate();
-    });
+        $(document).ready(function () {
 
-  </script>
+            $(".topleveldonationbidformsetform").each(function (fI, formObj) {
+                $(".mf_widget.mf_model_bidtarget").each(function (i, obj) {
+                    donationBidsFilter.applyToWidget(obj, createNewOptionCallback(formObj));
+                });
+            });
+
+            $(".mf_newoption").each(function (i, obj) {
+                $(obj).hide();
+            });
+
+            $(".mf_widget.mf_model_prize").each(function (i, obj) {
+                prizeFilter.applyToWidget(obj);
+            });
+
+            $(".cdonationbidamount").each(function (i, obj) {
+                $(obj).unbind();
+                $(obj).bind("keyup input", bidsAmountUpdate);
+            });
+
+            $(".cprizeamount").each(function (i, obj) {
+                $(obj).unbind();
+                $(obj).bind("keyup input", prizeAmountUpdate);
+            });
+
+            $("#iDonationAmount").each(function (i, obj) {
+                $(obj).unbind();
+                $(obj).bind("keyup input", function () {
+                    bidsAmountUpdate();
+                    prizeAmountUpdate();
+                });
+            });
+
+            bidsAmountUpdate();
+            prizeAmountUpdate();
+        });
+
+    </script>
 
 {% endblock %}
 {% block content %}

@@ -53,7 +53,7 @@ class Bid(mptt.models.MPTTModel):
     order_insertion_by = ['name']
   def natural_key(self):
     if self.parent:
-	  return (self.event.natural_key(), self.name, self.speedrun.natural_key() if self.speedrun else None, self.parent.natural_key())
+      return (self.event.natural_key(), self.name, self.speedrun.natural_key() if self.speedrun else None, self.parent.natural_key())
     elif self.speedrun:
       return (self.event.natural_key(), self.name, self.speedrun.natural_key())
     else:
@@ -107,6 +107,14 @@ class Bid(mptt.models.MPTTModel):
       self.revealedtime = datetime.utcnow().replace(tzinfo=pytz.utc)
     self.update_total()
 
+  @property
+  def has_options(self):
+    return self.allowuseroptions or self.public_options.exists()
+
+  @property
+  def public_options(self):
+    return self.options.filter(Q(state='OPENED')|Q(state='CLOSED')).order_by('-total')
+
   def update_total(self):
     if self.istarget:
       self.total = self.bids.filter(donation__transactionstate='COMPLETED').aggregate(Sum('amount'))['amount__sum'] or Decimal('0.00')
@@ -115,8 +123,9 @@ class Bid(mptt.models.MPTTModel):
       if self.goal and self.state == 'OPENED' and self.total >= self.goal and self.istarget:
         self.state = 'CLOSED'
     else:
-      self.total = self.options.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
-      self.count = self.options.aggregate(Sum('count'))['count__sum'] or 0
+      options = self.options.exclude(state__in=('HIDDEN','DENIED','PENDING')).aggregate(Sum('total'),Sum('count'))
+      self.total = options['total__sum'] or Decimal('0.00')
+      self.count = options['count__sum'] or 0
 
   def get_event(self):
     if self.speedrun:
@@ -158,17 +167,17 @@ def BidParentUpdate(sender, instance, created, raw, **kwargs):
 class DonationBid(models.Model):
   bid = models.ForeignKey('Bid',on_delete=models.PROTECT,related_name='bids')
   donation = models.ForeignKey('Donation',on_delete=models.PROTECT,related_name='bids')
-  amount = models.DecimalField(decimal_places=2,max_digits=20,validators=[positive,nonzero])
+  amount = models.DecimalField(default=0,decimal_places=2,max_digits=20,validators=[positive,nonzero])
   class Meta:
     app_label = 'tracker'
     verbose_name = 'Donation Bid'
     ordering = [ '-donation__timereceived' ]
     unique_together = (('bid', 'donation'),)
   def clean(self):
-    if not self.bid.is_leaf_node():
+    if not self.bid.istarget:
       raise ValidationError('Target bid must be a leaf node')
     self.donation.clean(self)
-    import tracker.viewutil as viewutil
+    from .. import viewutil
     bidsTree = viewutil.get_tree_queryset_all(Bid, [self.bid]).select_related('parent').prefetch_related('options')
     for bid in bidsTree:
       if bid.state == 'OPENED' and bid.goal != None and bid.goal <= bid.total:
@@ -188,7 +197,6 @@ def DonationBidParentUpdate(sender, instance, created, raw, **kwargs):
 
 class BidSuggestion(models.Model):
   bid = models.ForeignKey('Bid', related_name='suggestions', null=False,on_delete=models.PROTECT)
-  bid = models.ForeignKey('Bid', on_delete=models.PROTECT, related_name='suggestions', null=False)
   name = models.CharField(max_length=64, blank=False, null=False, verbose_name="Name")
   class Meta:
     app_label = 'tracker'
