@@ -53,5 +53,6 @@ urlpatterns = patterns(
     url(r'^user/password_change_done/$', 'password_change_done', name='password_change_done'),
     url(r'^user/register/$', 'register', name='register'),
     url(r'^user/confirm_registration/$', 'confirm_registration', name='confirm_registration'),
-)
 
+    url('', include('social.apps.django_app.urls', namespace='social')),
+)
