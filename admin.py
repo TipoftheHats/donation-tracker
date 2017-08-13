@@ -258,11 +258,12 @@ class BidAdmin(CustomModelAdmin):
   def has_add_permission(self, request):
     return request.user.has_perm('tracker.top_level_bid')
   def has_change_permission(self, request, obj=None):
-    return obj == None or request.user.has_perm('tracker.can_edit_locked_events') or not obj.event.locked
+    return super(BidAdmin, self).has_change_permission(request, obj) and \
+      (obj == None or request.user.has_perm('tracker.can_edit_locked_events') or not obj.event.locked)
   def has_delete_permission(self, request, obj=None):
-    return obj == None or \
-       ((request.user.has_perm('tracker.can_edit_locked_events') or not obj.event.locked) and \
-        (request.user.has_perm('tracker.delete_all_bids') or not obj.total))
+    return super(BidAdmin, self).has_delete_permission(request, obj) and \
+      (obj == None or ((request.user.has_perm('tracker.can_edit_locked_events') or not obj.event.locked) and
+       (request.user.has_perm('tracker.delete_all_bids') or not obj.total)))
   def merge_bids(self, request, queryset):
     bids = queryset
     for bid in bids:
@@ -322,10 +323,6 @@ class DonationBidInline(CustomStackedInline):
   max_num=100
   readonly_fields = ('edit_link',)
 
-class DonationBidForm(djforms.ModelForm):
-  bid = make_ajax_field(tracker.models.DonationBid, 'bid', 'bidtarget')
-  donation = make_ajax_field(tracker.models.DonationBid, 'donation', 'donation')
-
 class DonationBidAdmin(CustomModelAdmin):
   form = DonationBidForm
   list_display = ('bid', 'donation', 'amount')
@@ -374,7 +371,7 @@ class DonationAdmin(CustomModelAdmin):
     ('Comment State', {'fields': ('comment', 'modcomment')}),
     ('Donation State', {'fields': (('transactionstate', 'bidstate', 'readstate', 'commentstate'),)}),
     ('Financial', {'fields': (('amount', 'fee', 'currency', 'testdonation'),)}),
-    ('Extra Donor Info', {'fields': (('requestedvisibility', 'requestedalias', 'requestedemail', 'steamid'),)}),
+    ('Extra Donor Info', {'fields': (('requestedvisibility', 'requestedalias', 'requestedemail','requestedsolicitemail', 'steamid'),)}),
     ('Other', {'fields': (('domain', 'domainId'),)}),
   ]
   def visible_donor_name(self, obj):
@@ -430,9 +427,11 @@ class DonationAdmin(CustomModelAdmin):
         ret.append('currency')
     return ret
   def has_change_permission(self, request, obj=None):
-    return obj == None or request.user.has_perm('tracker.can_edit_locked_events') or not obj.event.locked
+    return super(DonationAdmin, self).has_change_permission(request, obj) and \
+           (obj == None or request.user.has_perm('tracker.can_edit_locked_events') or not obj.event.locked)
   def has_delete_permission(self, request, obj=None):
-    return obj == None or obj.domain == 'LOCAL' or request.user.has_perm('tracker.delete_all_donations')
+    return super(DonationAdmin, self).has_delete_permission(request, obj) and \
+           (obj == None or obj.domain == 'LOCAL' or request.user.has_perm('tracker.delete_all_donations'))
   def get_queryset(self, request):
     event = viewutil.get_selected_event(request)
     params = {}
@@ -543,7 +542,7 @@ class DonorAdmin(CustomModelAdmin):
   readonly_fields = ('visible_name',)
   list_display = ('__unicode__', 'visible_name', 'alias', 'visibility')
   fieldsets = [
-    (None, { 'fields': ['email', 'alias', 'firstname', 'lastname', 'visibility', 'visible_name', 'user'] }),
+    (None, { 'fields': ['email', 'alias', 'firstname', 'lastname', 'visibility', 'visible_name', 'user', 'solicitemail'] }),
     ('Donor Info', {
       'classes': ['collapse'],
       'fields': ['paypalemail']
@@ -687,7 +686,7 @@ class PrizeInline(CustomStackedInline):
 
 class PrizeAdmin(CustomModelAdmin):
   form = PrizeForm
-  list_display = ('name', 'category', 'bidrange', 'games', 'starttime', 'endtime', 'sumdonations', 'randomdraw', 'event', 'winners_', 'provider', 'handler' )
+  list_display = ('name', 'category', 'bidrange', 'games', 'start_draw_time', 'end_draw_time', 'sumdonations', 'randomdraw', 'event', 'winners_', 'provider', 'handler' )
   list_filter = ('event', 'category', 'state', PrizeListFilter)
   fieldsets = [
     (None, { 'fields': ['name', 'description', 'shortdescription', 'image', 'altimage', 'event', 'category', 'requiresshipping', 'handler' ] }),
@@ -912,7 +911,8 @@ class AdminActionLogEntryAdmin(CustomModelAdmin):
   search_fields = ['object_repr', 'change_message']
   date_hierarchy = 'action_time'
   list_filter = [('action_time', admin.DateFieldListFilter), 'user', AdminActionLogEntryFlagFilter]
-  readonly_fields = ['action_time', 'content_type', 'object_id', 'object_repr', 'action_type', 'action_flag', 'target_object']
+  readonly_fields = ('action_time', 'content_type', 'object_id', 'object_repr', 'action_type',
+                     'action_flag', 'target_object', 'change_message', 'user')
   fieldsets = [
     (None, {'fields': ['action_type', 'action_time', 'user', 'change_message', 'target_object']})
   ]

@@ -7,9 +7,10 @@ import random
 import traceback
 
 from django.db import transaction
+from django.db.models import Sum
 from django.http import HttpResponse,Http404
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.cache import never_cache
+from django.views.decorators.cache import never_cache, cache_page
 from django.core import serializers
 from django.core.urlresolvers import reverse
 
@@ -42,6 +43,7 @@ def paypal_return(request):
   return views_common.tracker_response(request, "tracker/paypal_return.html")
 
 @csrf_exempt
+@cache_page(300)
 def donate(request, event):
   event = viewutil.get_event(event)
   if event.locked:
@@ -62,6 +64,7 @@ def donate(request, event):
           donation.requestedvisibility = commentform.cleaned_data['requestedvisibility']
           donation.requestedalias = commentform.cleaned_data['requestedalias']
           donation.requestedemail = commentform.cleaned_data['requestedemail']
+          donation.requestedsolicitemail = commentform.cleaned_data['requestedsolicitemail']
           donation.currency = event.paypalcurrency
           if request.session.get('uid'):
              donation.steamid = request.session.get('uid')
@@ -166,7 +169,6 @@ def donate(request, event):
 @csrf_exempt
 @never_cache
 def ipn(request):
-  donation = None
   ipnObj = None
 
   if request.method == 'GET' or len(request.POST) == 0:
@@ -185,7 +187,7 @@ def ipn(request):
         formatContext = {
           'event': donation.event,
           'donation': donation,
-          'donor': donor,
+          'donor': donation.donor,
           'pending_reason': ipnObj.pending_reason,
           'reason_info': reasonExplanation if not ourFault else '',
         }
@@ -203,6 +205,8 @@ def ipn(request):
         }
         post_office.mail.send(recipients=[donation.donor.email], sender=donation.event.donationemailsender, template=donation.event.donationemailtemplate, context=formatContext)
 
+      agg = filters.run_model_query('donation', {'event': donation.event.id }).aggregate(amount=Sum('amount'))
+
       # TODO: this should eventually share code with the 'search' method, to
       postbackData = {
         'id': donation.id,
@@ -211,6 +215,7 @@ def ipn(request):
         'amount': donation.amount,
         'donor__visibility': donation.donor.visibility,
         'donor__visiblename': donation.donor.visible_name(),
+        'new_total': agg['amount']
       }
       postbackJSon = json.dumps(postbackData, ensure_ascii=False, cls=serializers.json.DjangoJSONEncoder).encode('utf-8')
       postbacks = models.PostbackURL.objects.filter(event=donation.event)

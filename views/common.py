@@ -8,6 +8,7 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.db import connection
 from django.template import Context
+from django.utils.cache import patch_cache_control
 
 import settings
 
@@ -21,7 +22,8 @@ def pv():
     return str(sys.version_info[0]) + '.' + str(sys.version_info[1]) + '.' + str(sys.version_info[2])
 
 def fixorder(queryset, orderdict, sort, order):
-    queryset = queryset.order_by(*orderdict[sort])
+    if sort in orderdict:
+        queryset = queryset.order_by(*orderdict[sort])
     if order == -1:
         queryset = queryset.reverse()
     return queryset
@@ -53,6 +55,13 @@ def tracker_response(request, template='tracker/index.html', qdict=None, status=
             resp = delegate(request, template, context=qdict, status=status)
         else:
             resp = render(request, template, context=qdict, status=status)
+        cache_control = {}
+        if request.user.is_anonymous():
+            cache_control['public'] = True
+        else:
+            cache_control['private'] = True
+            cache_control['max-age'] = 0
+        patch_cache_control(resp, **cache_control)
         if 'queries' in request.GET and request.user.has_perm('tracker.view_queries'):
             return HttpResponse(json.dumps(connection.queries, ensure_ascii=False, indent=1),content_type='application/json;charset=utf-8')
         return resp
