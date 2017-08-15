@@ -11,7 +11,7 @@ install:
   - cd ~/toplevel
 
   # Move tracker into toplevel
-  - mv ~/tracker ~/toplevel/tracker
+  - mv ~/tracker ~/toplevel
 
   # Install custom django-paypal
   - git clone https://github.com/GamesDoneQuick/django-paypal.git
