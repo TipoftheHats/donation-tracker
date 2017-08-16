@@ -66,21 +66,6 @@
             return text;
         }
 
-      for (var i = 0; i < parents.length; ++i)
-      {
-        if (i === 0) {
-          text += '<div class="mf_description-name">' + parents[i]['name'] + '</div>';
-
-          if (parents[i]['description']) {
-            text += '<div class="mf_description-description">' + parents[i]['description'] + '</div>';
-          }
-        } else {
-          text += '<p class="mf_description-selected">You have selected <b>' + parents[i]['name'] + '</b> for this choice.</p>';
-        }
-
-      return text;
-    }
-
         function bidsAmountUpdate() {
             {% if hasBids %}
                 totalBidsAllocated = 0;
@@ -154,25 +139,20 @@
             var $totalprizeremaining = $("#totalprizeremaining");
             $totalprizeremaining.html((donationTotal - totalPrizeAllocated).toFixed(2));
             $totalprizeremaining.get(0).style.color = txtColor;
+
+            if (isNaN(donationTotal)) {
+              donationTotal = 0;
+            }
+
+            $("#totalprizeallocated").get(0).style.color = txtColor;
+            $("#totalprizeallocated").html(totalPrizeAllocated.toFixed(2));
+            $("#prizedonationtotal").html(donationTotal.toFixed(2));
+
+            $("#totalprizeremaining").html((donationTotal - totalPrizeAllocated).toFixed(2));
+            $("#totalprizeremaining").get(0).style.color = txtColor;
         }
 
-      if (isNaN(donationTotal)) {
-        donationTotal = 0;
-      }
-
-      var txtColor = "Black";
-
-      if (totalPrizeAllocated > donationTotal) {
-        txtColor = "Red";
-      }
-
-      $("#totalprizeallocated").get(0).style.color = txtColor;
-      $("#totalprizeallocated").html(totalPrizeAllocated.toFixed(2));
-      $("#prizedonationtotal").html(donationTotal.toFixed(2));
-
-      $("#totalprizeremaining").html((donationTotal - totalPrizeAllocated).toFixed(2));
-      $("#totalprizeremaining").get(0).style.color = txtColor;
-    }
+      
 
     function validateDonationForm() {
       // TODO: this would otherwise only get set when setting the
@@ -320,93 +300,47 @@
       }
     }
 
-    $(document).ready(function() {
-      $('#disconnect').click(function () {
-        $('#disconnectForm').submit();
+
+
+      $(document).ready(function () {
+          $('#disconnect').click(function () {
+            $('#disconnectForm').submit();
+          });
+          $(".topleveldonationbidformsetform").each(function (fI, formObj) {
+              $(".mf_widget.mf_model_bidtarget").each(function (i, obj) {
+                  donationBidsFilter.applyToWidget(obj, createNewOptionCallback(formObj));
+              });
+          });
+
+          $(".mf_newoption").each(function (i, obj) {
+              $(obj).hide();
+          });
+
+          $(".mf_widget.mf_model_prize").each(function (i, obj) {
+              prizeFilter.applyToWidget(obj);
+          });
+
+          $(".cdonationbidamount").each(function (i, obj) {
+              $(obj).unbind();
+              $(obj).bind("keyup input", bidsAmountUpdate);
+          });
+
+          $(".cprizeamount").each(function (i, obj) {
+              $(obj).unbind();
+              $(obj).bind("keyup input", prizeAmountUpdate);
+          });
+
+          $("#iDonationAmount").each(function (i, obj) {
+              $(obj).unbind();
+              $(obj).bind("keyup input", function () {
+                  bidsAmountUpdate();
+                  prizeAmountUpdate();
+              });
+          });
+
+          bidsAmountUpdate();
+          prizeAmountUpdate();
       });
-
-      $(".topleveldonationbidformsetform").each(function(fI, formObj) {
-        $(".mf_widget.mf_model_bidtarget").each(function(i, obj) {
-          donationBidsFilter.applyToWidget(obj, createNewOptionCallback(formObj));
-        });
-      });
-
-            if (totalBidsAllocated > donationTotal) {
-                window.alert("Total allocated must be less than donation amount.");
-                return false;
-            }
-
-            return true;
-        }
-
-        function createNewOptionCallback(obj) {
-            var fieldDiv = $(obj).find(".mf_newoption").get(0);
-
-            return function (bid) {
-                if ("custom" in bid) {
-                    $(fieldDiv).show();
-                } else {
-                    $(fieldDiv).hide();
-                }
-            }
-        }
-
-        function onAddBidAssignmentWidget(obj) {
-            var widgetDiv = $(obj).find(".mf_widget.mf_model_bidtarget").get(0);
-            console.log('Here')
-            donationBidsFilter.applyToWidget(widgetDiv, createNewOptionCallback(obj));
-            numBlocks = $(".topleveldonationbidsformsetform").length;
-            if (numBlocks >= 10) {
-                $(".add-row").css("display", "none");
-            }
-        }
-
-        function onAddPrizeAssignmentWidget(obj) {
-            var widgetDiv = $(obj).find(".mf_widget.mf_model_prize").get(0);
-            prizeFilter.applyToWidget(widgetDiv);
-            numBlocks = $(".toplevelprizeticketformsetform").length;
-            if (numBlocks >= 10) {
-                $(".add-row").css("display", "none");
-            }
-        }
-
-        $(document).ready(function () {
-
-            $(".topleveldonationbidformsetform").each(function (fI, formObj) {
-                $(".mf_widget.mf_model_bidtarget").each(function (i, obj) {
-                    donationBidsFilter.applyToWidget(obj, createNewOptionCallback(formObj));
-                });
-            });
-
-            $(".mf_newoption").each(function (i, obj) {
-                $(obj).hide();
-            });
-
-            $(".mf_widget.mf_model_prize").each(function (i, obj) {
-                prizeFilter.applyToWidget(obj);
-            });
-
-            $(".cdonationbidamount").each(function (i, obj) {
-                $(obj).unbind();
-                $(obj).bind("keyup input", bidsAmountUpdate);
-            });
-
-            $(".cprizeamount").each(function (i, obj) {
-                $(obj).unbind();
-                $(obj).bind("keyup input", prizeAmountUpdate);
-            });
-
-            $("#iDonationAmount").each(function (i, obj) {
-                $(obj).unbind();
-                $(obj).bind("keyup input", function () {
-                    bidsAmountUpdate();
-                    prizeAmountUpdate();
-                });
-            });
-
-            bidsAmountUpdate();
-            prizeAmountUpdate();
-        });
 
     </script>
 
@@ -607,9 +541,11 @@ $(function() {
 })
 </script>
 
-<form id="disconnectForm" style="display: none;" action="{% url 'social:disconnect' 'steam' %}?next={{ request.get_full_path }}" method="POST">
+{% if request.session.uid %}
+<form id="disconnectForm" style="display: none;" action="{% url 'social:disconnect_individual' 'steam' request.session.uid %}?next={{ request.get_full_path }}" method="POST">
   {% csrf_token %}
 </form>
+{% endif %}
 
 {% if not request.session.uid %}
 <script>
