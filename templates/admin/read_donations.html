@@ -8,17 +8,17 @@
 {% block head %}
 
 <style>
+
 td {
   padding: 5px;
 }
-tbody {
 
-}
 button {
   margin: 3px !important;
 }
 thead th {
   background-color: #4E5D6C !important;
+  min-width:200px;
 }
 #comment-filters {
   margin:auto;
@@ -27,8 +27,9 @@ thead th {
 }
 .priority {
   background-color:rgba(239, 127, 0, 0.45);
-
 }
+
+
 </style>
 
 <link href="{% static "css/ajax_select.css" %}" type="text/css" media="ajax" rel="stylesheet" />
@@ -104,7 +105,7 @@ function addRow(donation) {
   $('button:contains("Block Comment")').addClass("btn btn-danger ");
 
   $(".btn").click(function(){
-    $(this).closest("tr").fadeTo("slow", 0.15);
+    $(this).closest("tr").fadeOut("slow");
 
    });
 }
@@ -136,8 +137,8 @@ function runSearch() {
         "<tr>" +
         "<th> Donor </th>" +
         "<th> Amount </th>" +
-        "<th> Comment </th>" +
-        "<th> Mod Comment </th>" +
+        "<th class='comment-col'> Comment </th>" +
+        "<th class='mod-col'> Mod Comment </th>" +
         "<th> Actions </th>" +
         "<th> Status </th>" +
         "</tr>" +
