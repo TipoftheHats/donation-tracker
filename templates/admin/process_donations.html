@@ -83,13 +83,13 @@ function addRow(donation) {
   row.append($("<td>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
   row.append($("<td>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
   row.append($("<td>").append(safeHtml(donation['fields']['comment'])));
+  row.append($("<td>").append("<textarea id='textarea-" + id + "'>" + safeHtml(donation['fields']['modcomment'])).append("<button class='btn-success btn-sm' id='mod-button-" + id + "' > Save"));
   row.append($("<td>")
     .append(makeEditButton(row, donation, "Approve Comment Only", "Comment Approved", { readstate: "IGNORED", commentstate: "APPROVED", prioritystate: 'False' }))
     .append(makeEditButton(row, donation, {% if user_can_approve %}"Send to Reader"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'False'}))
     .append(makeEditButton(row, donation, {% if user_can_approve %}"Priority"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'True'}))
     .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED", prioritystate: 'False' })));
   row.append($('<td class="statuscell">'));
-
   resultsTable.append(row);
   //$("button").addClass("btn")
 $('button:contains("Approve Comment Only")').addClass("btn btn-primary btn-sm");
@@ -101,6 +101,18 @@ $(".btn").click(function(){
   $(this).closest("tr").fadeTo("slow", 0.35);
 
  });
+ $("#mod-button-" + id).click(function(e){
+   newModComment = $(this).closest('td').find('textarea').val();
+   console.log(newModComment);
+   trackerAPI.editObject("donation", id , { modcomment: newModComment }, function(status, responseText) {
+     if (status == 200) {
+       console.log('mod comment modified');
+       console.log(responseText)
+     } else {
+       console.log('error adding mod comment' + responseText);
+     }
+     });
+  });
 }
 
 function runSearch() {
@@ -139,6 +151,7 @@ function runSearch() {
         "<th> Donor </th>" +
         "<th> Amount </th>" +
         "<th> Comment </th>" +
+        "<th> Mod Comment </th>" +
         "<th> Actions </th>" +
         "<th> Status </th>" +
         "</tr>" +

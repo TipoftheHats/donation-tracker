@@ -84,6 +84,7 @@ function addRow(donation) {
   row.append($("<td>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
   row.append($("<td>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
   row.append($("<td>").append(safeHtml(donation['fields']['comment'])));
+  row.append($("<td>").append(safeHtml(donation['fields']['modcomment'])));
 
   row.append($("<td>")
     .append(makeEditButton(row, donation, "Read", "Read on the Air", { readstate: "READ", commentstate: "APPROVED" }))
@@ -136,6 +137,7 @@ function runSearch() {
         "<th> Donor </th>" +
         "<th> Amount </th>" +
         "<th> Comment </th>" +
+        "<th> Mod Comment </th>" +
         "<th> Actions </th>" +
         "<th> Status </th>" +
         "</tr>" +
