@@ -542,7 +542,7 @@ $(function() {
 </script>
 
 {% if request.session.uid %}
-<form id="disconnectForm" style="display: none;" action="{% url 'social:disconnect_individual' 'steam' request.session.uid %}?next={{ request.get_full_path }}" method="POST">
+<form id="disconnectForm" style="display: none;" action="{% url 'disconnect_steam' %}?next={{ request.get_full_path }}" method="POST">
   {% csrf_token %}
 </form>
 {% endif %}

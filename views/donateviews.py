@@ -13,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache, cache_page
 from django.core import serializers
 from django.core.urlresolvers import reverse
+from django.shortcuts import redirect
 
 from paypal.standard.forms import PayPalPaymentsForm
 from paypal.standard.ipn.models import PayPalIPN
@@ -32,6 +33,7 @@ __all__ = [
   'paypal_return',
   'donate',
   'ipn',
+  'disconnect_steam'
   ]
 
 @csrf_exempt
@@ -43,7 +45,6 @@ def paypal_return(request):
   return views_common.tracker_response(request, "tracker/paypal_return.html")
 
 @csrf_exempt
-@cache_page(300)
 def donate(request, event):
   event = viewutil.get_event(event)
   if event.locked:
@@ -165,6 +166,13 @@ def donate(request, event):
   ticketPrizesJson = json.dumps(dumpArray, ensure_ascii=False, cls=serializers.json.DjangoJSONEncoder)
 
   return views_common.tracker_response(request, "tracker/donate.html", { 'event': event, 'bidsform': bidsform, 'prizesform': prizesform, 'commentform': commentform, 'hasBids': bids.count() > 0, 'bidsJson': bidsJson, 'hasTicketPrizes': ticketPrizes.count() > 0, 'ticketPrizesJson': ticketPrizesJson, 'prizes': prizes})
+
+@csrf_exempt
+@never_cache
+def disconnect_steam(request):
+  if 'uid' in request.session:
+    request.session['uid'] = None
+  return redirect(request.session['next'])
 
 @csrf_exempt
 @never_cache
