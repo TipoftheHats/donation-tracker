@@ -9,13 +9,14 @@ install:
   # Pull down toplevel repo
   - git clone https://github.com/TipoftheHats/donation-tracker-toplevel ~/toplevel
   - cd ~/toplevel
+  - git submodule update --init
 
   # Move tracker into toplevel
+  - rm -rf ~/toplevel/tracker
   - mv ~/tracker ~/toplevel
 
   # Install custom django-paypal
-  - git clone https://github.com/GamesDoneQuick/django-paypal.git
-  - cd django-paypal && git checkout gdqversion && python setup.py install && cd ..
+  - pip install ./django-paypal
 
 script:
   - cd ~/toplevel && cp tracker/tests/travis_local.py local.py && python manage.py test
