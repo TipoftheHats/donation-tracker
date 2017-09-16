@@ -2,10 +2,7 @@ language: python
 python:
   - "2.7"
 install:
-  # Install requirements
   - mv $TRAVIS_BUILD_DIR ~/tracker
-  - cd ~/tracker && pip install -r requirements.txt && cd ..
-  - cd ~/tracker_ui && pip install -r requirements.txt && cd ..
 
   # Pull down toplevel repo
   - git clone https://github.com/TipoftheHats/donation-tracker-toplevel ~/toplevel
@@ -16,9 +13,10 @@ install:
   - rm -rf ~/toplevel/tracker
   - mv ~/tracker ~/toplevel
 
-  # Install custom django-paypal
+   # Install requirements
+  - pip install -r ~/tracker/requirements.txt
+  - pip install -r tracker_ui/requirements.txt
   - pip install ./django-paypal
-
 script:
   - cd ~/toplevel && cp tracker/tests/travis_local.py local.py && python manage.py test
 
