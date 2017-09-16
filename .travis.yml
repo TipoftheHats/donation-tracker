@@ -14,7 +14,7 @@ install:
   - mv ~/tracker ~/toplevel
 
    # Install requirements
-  - pip install -r ~/tracker/requirements.txt
+  - pip install -r tracker/requirements.txt
   - pip install -r tracker_ui/requirements.txt
   - pip install ./django-paypal
 script:
