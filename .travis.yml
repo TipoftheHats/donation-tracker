@@ -5,6 +5,7 @@ install:
   # Install requirements
   - mv $TRAVIS_BUILD_DIR ~/tracker
   - cd ~/tracker && pip install -r requirements.txt && cd ..
+  - cd ~/tracker_ui && pip install -r requirements.txt && cd ..
 
   # Pull down toplevel repo
   - git clone https://github.com/TipoftheHats/donation-tracker-toplevel ~/toplevel
