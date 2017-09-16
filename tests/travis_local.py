@@ -11,10 +11,10 @@ DEBUG = True
 
 # You can add your e-mail if you want to receive notifications of failures I think , but its probably not a good idea
 ADMINS = [
-    #('Your Name', 'your_email@example.com'), 
+	#('Your Name', 'your_email@example.com'),
 ]
 
-# You can also make local sqlite databases in your current directory 
+# You can also make local sqlite databases in your current directory
 # if you want to test changes to the data model
 DATABASES = {
     'default': {
@@ -41,12 +41,12 @@ HAS_GDOC = False
 # GDOC_USERNAME = 'person@gmail.com'
 # GDOC_PASSWORD = '12345678'
 
-HAS_EMAIL = True
-EMAIL_HOST = 'mail.somwhere.com'
-EMAIL_PORT = 465
-EMAIL_HOST_USER = 'dude@somewhere.com'
-EMAIL_HOST_PASSWORD = '1234567878'
-EMAIL_FROM_USER = 'someone_else@somewhere.com'
+HAS_EMAIL = False
+# EMAIL_HOST = 'mail.somwhere.com'
+# EMAIL_PORT = 465
+# EMAIL_HOST_USER = 'dude@somewhere.com'
+# EMAIL_HOST_PASSWORD = '1234567878'
+# EMAIL_FROM_USER = 'someone_else@somewhere.com'
 
 HAS_GOOGLE_APP_ID = False
 # GOOGLE_CLIENT_ID = 'the.google.apps.url.thingy'
@@ -54,5 +54,8 @@ HAS_GOOGLE_APP_ID = False
 
 HAS_GIANTBOMB_API_KEY = False
 # GIANTBOMB_API_KEY = 'Itsreallynicetohaveanditsfreetomakeanaccountbutnotneccessary'
+
+HAS_STEAM_API_KEY = False
+#STEAM_API_KEY = 'MY_KEY' # Grab key from here: https://steamcommunity.com/dev/apikey
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
