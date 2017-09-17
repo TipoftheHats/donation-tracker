@@ -59,3 +59,6 @@ HAS_STEAM_API_KEY = False
 #STEAM_API_KEY = 'MY_KEY' # Grab key from here: https://steamcommunity.com/dev/apikey
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+USING_RAVEN = False
+# RAVEN_DSN = '' # Get Raven DSN from Sentry
