@@ -11,12 +11,25 @@
 td {
   padding: 5px;
 }
+button {
+  margin: 3px !important;
+}
+thead th {
+  background-color: #4E5D6C !important;
+}
+#comment-filters {
+  margin:auto;
+  width:auto;
+  text-align:center;
+}
 </style>
 
 <link href="{% static "css/ajax_select.css" %}" type="text/css" media="ajax" rel="stylesheet" />
 <script src="{% static "js/ajax_select.js" %}"></script>
 <link href="{% static "adminprocessing.css" %}" type="text/css" media="ajax" rel="stylesheet" />
 <script src="{% static "adminprocessing.js" %}"></script>
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
 
 
 <script>
@@ -58,23 +71,48 @@ $(document).ready(function(){
 
   resultsTable = $("#id_result_set");
   setTimeout(runSearch, 0);
+
+
+
 });
 
 function addRow(donation) {
   var row = $("<tr>");
   var id = parseInt(donation['pk']);
-
+  var priorityId = '#priority-'+id;
   row.append($("<td>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
   row.append($("<td>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
   row.append($("<td>").append(safeHtml(donation['fields']['comment'])));
+  row.append($("<td>").append("<textarea id='textarea-" + id + "'>" + safeHtml(donation['fields']['modcomment'])).append("<button class='btn-success btn-sm' id='mod-button-" + id + "' > Save"));
   row.append($("<td>")
-    .append(makeEditButton(row, donation, "Approve Comment Only", "Comment Approved", { readstate: "IGNORED", commentstate: "APPROVED" }))
-    .append(makeEditButton(row, donation, {% if user_can_approve %}"Send to Reader"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED" }))
-    .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" })));
-
+    .append(makeEditButton(row, donation, "Approve Comment Only", "Comment Approved", { readstate: "IGNORED", commentstate: "APPROVED", prioritystate: 'False' }))
+    .append(makeEditButton(row, donation, {% if user_can_approve %}"Send to Reader"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'False'}))
+    .append(makeEditButton(row, donation, {% if user_can_approve %}"Priority"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'True'}))
+    .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED", prioritystate: 'False' })));
   row.append($('<td class="statuscell">'));
-
   resultsTable.append(row);
+  //$("button").addClass("btn")
+$('button:contains("Approve Comment Only")').addClass("btn btn-primary btn-sm");
+$('button:contains("Send to Reader")').addClass("btn btn-success btn-sm");
+$('button:contains("Priority")').addClass("btn btn-info btn-sm");
+$('button:contains("Block Comment")').addClass("btn btn-danger btn-sm");
+
+$(".btn").click(function(){
+  $(this).closest("tr").fadeOut("slow");
+
+ });
+ $("#mod-button-" + id).click(function(e){
+   newModComment = $(this).closest('td').find('textarea').val();
+   console.log(newModComment);
+   trackerAPI.editObject("donation", id , { modcomment: newModComment }, function(status, responseText) {
+     if (status == 200) {
+       console.log('mod comment modified');
+       console.log(responseText)
+     } else {
+       console.log('error adding mod comment' + responseText);
+     }
+     });
+  });
 }
 
 function runSearch() {
@@ -107,13 +145,18 @@ function runSearch() {
 
       var resultsTable = $("#id_result_set");
 
-      resultsTable.html("<tr>" +
+      resultsTable.html(
+        "<thead class='thead-inverse'>" +
+        "<tr>" +
         "<th> Donor </th>" +
         "<th> Amount </th>" +
         "<th> Comment </th>" +
+        "<th> Mod Comment </th>" +
         "<th> Actions </th>" +
         "<th> Status </th>" +
-        "</tr>");
+        "</tr>" +
+        "</thread>" +
+        "<tbody");
 
       var donations = eval(responseText);
 
@@ -138,12 +181,12 @@ function runSearch() {
   });
 
 }
-
 </script>
 
 {% endblock %}
 
 {% block content %}
+<div id="comment-filters">
 
 <label>Partition ID:</label> <input type="number" id="partition_id" min="0" max="0" value="0">
 <label>Partition Count:</label> <input type="number" id="partition_count" min="1" value="1">
@@ -159,17 +202,20 @@ function runSearch() {
 {% if user_can_approve %}
 <label>Processing Mode</label>
 <select id="id_process_mode">
-  <option value="confirm">Confirmation</option>
   <option value="normal">Regular</option>
+  <option value="confirm">Confirmation</option>
 </select>
 {% endif %}
 
 <button onclick="runSearch();">Refresh</button>
+</div>
 
 <span id="id_loading"></span>
 
-<table id="id_result_set" border="1" style="margin: auto; width: auto;">
+<div class="table-responsive">
+
+  <table class="table table-hover table-bordered" id="id_result_set" border="1" style="margin: auto; width: auto;">
 
 </table>
-
+</div>
 {% endblock %}
