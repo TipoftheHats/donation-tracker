@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load donation_tags %}
 {% load staticfiles %}
 
 <!DOCTYPE html>
@@ -8,6 +9,20 @@
 
     <link rel="stylesheet" type="text/css" href="{% static "jquery.datetimepicker.css" %}" />
     <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/themes/smoothness/jquery-ui.css" />
+
+    {% load raven %}
+    <script src="https://cdn.ravenjs.com/3.17.0/raven.min.js" crossorigin="anonymous"></script>
+    <script>
+        Raven.config('{% sentry_public_dsn %}', {
+            release: '{% settings_value "RAVEN_RELEASE" %}',
+            environment: '{% settings_value "RAVEN_ENVIRONMENT" %}'
+        }).install();
+
+        // TODO: remove this
+        setTimeout(() => {
+            throw new Error('this is a test client-side error');
+        }, 1000);
+    </script>
 
     <script type="application/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
 

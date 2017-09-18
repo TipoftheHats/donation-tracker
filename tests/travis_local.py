@@ -62,3 +62,4 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 USING_RAVEN = False
 # RAVEN_DSN = '' # Get Raven DSN from Sentry
+# RAVEN_ENVIRONMENT = '' # One of: development, staging, or production.
