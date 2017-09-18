@@ -66,6 +66,25 @@
             return text;
         }
 
+        var donationBidsFilter = new MegaFilter(BIDS, ["suggested", 'custom'], ['name', 'description', 'runname'], bidLabel, bidDetailText);
+
+        function prizeLabel(prize) {
+            var result = prize['name'] + ' $' + prize['minimumbid']; // etc...
+            if (prize['maximumbid'] !== null && prize['maximumbid'] != prize['minimumbid']) {
+                result += ' - $' + prize['maximumbid'];
+            }
+            if (prize['sumdonations']) {
+                result += ' (sum)';
+            }
+            return result;
+        }
+
+        function prizeDescription(prize) {
+            return prize['description'];
+        }
+
+        var prizeFilter = new MegaFilter(PRIZES, null, ['name', 'description'], prizeLabel, prizeDescription);
+
         function bidsAmountUpdate() {
             {% if hasBids %}
                 totalBidsAllocated = 0;
@@ -283,7 +302,6 @@
 
     function onAddBidAssignmentWidget(obj) {
       var widgetDiv = $(obj).find(".mf_widget.mf_model_bidtarget").get(0);
-      console.log('Here')
       donationBidsFilter.applyToWidget(widgetDiv, createNewOptionCallback(obj));
       numBlocks = $(".topleveldonationbidsformsetform").length;
       if (numBlocks >= 10) {
