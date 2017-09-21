@@ -22,6 +22,39 @@ thead th {
   width:auto;
   text-align:center;
 }
+@media (max-width: 1920px) {
+  .donation-comment, .mod-comment {
+    max-width:350px;
+    word-wrap: break-word;
+  }
+  .amount-column {
+    max-width:350px;
+  }
+  .statuscell {
+    max-width:100px;
+  }
+ }
+@media (max-width: 1200px) {
+  .donation-comment, .mod-comment {
+    max-width:275px;
+    word-wrap: break-word;
+  }
+  .amount-column {
+    max-width:120px;
+  }
+  .statuscell {
+    max-width:75px;
+  }
+  .button-column {
+    max-width: 150px;
+    text-align:center;
+  }
+  .donor-column {
+    max-width: 200px;
+    word-wrap: break-word;
+  }
+ }
+
 </style>
 
 <link href="{% static "css/ajax_select.css" %}" type="text/css" media="ajax" rel="stylesheet" />
@@ -80,19 +113,20 @@ function addRow(donation) {
   var row = $("<tr>");
   var id = parseInt(donation['pk']);
   var priorityId = '#priority-'+id;
-  row.append($("<td>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
-  row.append($("<td>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
-  row.append($("<td>").append(safeHtml(donation['fields']['comment'])));
-  row.append($("<td>").append("<textarea id='textarea-" + id + "'>" + safeHtml(donation['fields']['modcomment'])).append("<button class='btn-success btn-sm' id='mod-button-" + id + "' > Save"));
-  row.append($("<td>")
-    .append(makeEditButton(row, donation, "Approve Comment Only", "Comment Approved", { readstate: "IGNORED", commentstate: "APPROVED", prioritystate: 'False' }))
+  row.append($("<td class='donor-column'>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
+  row.append($("<td class='amount-column'>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
+  row.append($("<td class='donation-comment'>").append(safeHtml(donation['fields']['comment'])));
+  row.append($("<td class='mod-comment'>").append("<textarea id='textarea-" + id + "'>" + safeHtml(donation['fields']['modcomment'])).append("<button class='btn-success btn-sm' id='mod-button-" + id + "' > Save"));
+  row.append($("<td class='button-column'>")
     .append(makeEditButton(row, donation, {% if user_can_approve %}"Send to Reader"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'False'}))
     .append(makeEditButton(row, donation, {% if user_can_approve %}"Priority"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'True'}))
-    .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED", prioritystate: 'False' })));
+    .append(makeEditButton(row, donation, "Approve Only", "Comment Approved", { readstate: "IGNORED", commentstate: "APPROVED", prioritystate: 'False' }))
+    .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED", prioritystate: 'False' }))
+  );
   row.append($('<td class="statuscell">'));
   resultsTable.append(row);
   //$("button").addClass("btn")
-$('button:contains("Approve Comment Only")').addClass("btn btn-primary btn-sm");
+$('button:contains("Approve Only")').addClass("btn btn-primary btn-sm");
 $('button:contains("Send to Reader")').addClass("btn btn-success btn-sm");
 $('button:contains("Priority")').addClass("btn btn-info btn-sm");
 $('button:contains("Block Comment")').addClass("btn btn-danger btn-sm");

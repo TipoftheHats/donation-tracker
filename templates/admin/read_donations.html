@@ -12,13 +12,11 @@
 td {
   padding: 5px;
 }
-
 button {
   margin: 3px !important;
 }
 thead th {
   background-color: #4E5D6C !important;
-  min-width:200px;
 }
 #comment-filters {
   margin:auto;
@@ -28,6 +26,38 @@ thead th {
 .priority {
   background-color:rgba(239, 127, 0, 0.45);
 }
+@media (max-width: 1920px) {
+  .donation-comment, .mod-comment {
+    max-width:350px;
+    word-wrap: break-word;
+  }
+  .amount-column {
+    max-width:350px;
+  }
+  .statuscell {
+    max-width:100px;
+  }
+ }
+@media (max-width: 1200px) {
+  .donation-comment, .mod-comment {
+    max-width:275px;
+    word-wrap: break-word;
+  }
+  .amount-column {
+    max-width:120px;
+  }
+  .statuscell {
+    max-width:75px;
+  }
+  .button-column {
+    max-width: 120px;
+    text-align:center;
+  }
+  .donor-column {
+    max-width: 200px;
+    word-wrap: break-word;
+  }
+ }
 
 
 </style>
@@ -82,15 +112,15 @@ function addRow(donation) {
   }
   var id = parseInt(donation['pk']);
 
-  row.append($("<td>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
-  row.append($("<td>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
-  row.append($("<td>").append(safeHtml(donation['fields']['comment'])));
-  row.append($("<td>").append(safeHtml(donation['fields']['modcomment'])));
+  row.append($("<td class='donor-column'>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
+  row.append($("<td class='amount-column'>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
+  row.append($("<td class='donation-comment'>").append(safeHtml(donation['fields']['comment'])));
+  row.append($("<td class='mod-comment'>").append(safeHtml(donation['fields']['modcomment'])));
 
-  row.append($("<td>")
+  row.append($("<td class='button-column'>")
     .append(makeEditButton(row, donation, "Read", "Read on the Air", { readstate: "READ", commentstate: "APPROVED" }))
     .append(makeEditButton(row, donation, "Ignore", "Ignored", { readstate: "IGNORED", commentstate: "APPROVED" }))
-    .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" })));
+    .append(makeEditButton(row, donation, "Block", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" })));
 
   row.append($('<td class="statuscell">'));
 
@@ -102,7 +132,7 @@ function addRow(donation) {
   //resultsTable.append(row);
   $('button:contains("Read")').addClass("btn btn-primary ");
   $('button:contains("Ignore")').addClass("btn btn-warning ");
-  $('button:contains("Block Comment")').addClass("btn btn-danger ");
+  $('button:contains("Block")').addClass("btn btn-danger ");
 
   $(".btn").click(function(){
     $(this).closest("tr").fadeOut("slow");
