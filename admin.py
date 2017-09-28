@@ -572,8 +572,8 @@ def merge_donors_view(request, *args, **kwargs):
       logutil.change(request, form.cleaned_data['root'], u'Merged donor {0} with {1}'.format(form.cleaned_data['root'], ','.join(map(lambda d: unicode(d), form.cleaned_data['objects']))))
       return HttpResponseRedirect(reverse('admin:tracker_donor_changelist'))
   else:
-    donors = map(lambda x: int(x), request.GET['objects'].split(','))
-    form = forms.MergeObjectsForm(model=tracker.models.Donor,donors=donors)
+    objects = map(lambda x: int(x), request.GET['objects'].split(','))
+    form = forms.MergeObjectsForm(model=tracker.models.Donor,objects=objects)
   return render(request, 'admin/merge_donors.html', dictionary={'form': form})
 
 def google_flow(request):
