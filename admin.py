@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.core.urlresolvers import reverse
 from django.utils.html import escape
@@ -360,9 +360,9 @@ class PrizeTicketInline(CustomStackedInline):
 
 class DonationAdmin(CustomModelAdmin):
   form = DonationForm
-  list_display = ('donor', 'visible_donor_name', 'amount', 'comment', 'commentlanguage', 'timereceived', 'event', 'domain', 'transactionstate', 'bidstate', 'readstate', 'commentstate', 'steamid')
+  list_display = ('id', 'visible_donor_name', 'amount', 'comment', 'commentlanguage', 'timereceived', 'event', 'domain', 'transactionstate', 'bidstate', 'readstate', 'commentstate', 'steamid')
   list_editable = ('transactionstate', 'bidstate', 'readstate', 'commentstate', 'steamid')
-  search_fields = ('donor__email', 'donor__paypalemail', 'donor__alias', 'donor__firstname', 'donor__lastname', 'amount', 'comment', 'modcomment', 'steamid')
+  search_fields_base = ('donor__alias', 'amount', 'comment', 'modcomment', 'steamid')
   list_filter = ('event', 'transactionstate', 'readstate', 'commentstate', 'bidstate', 'commentlanguage', DonationListFilter)
   readonly_fields = ['domainId']
   inlines = (DonationBidInline,PrizeTicketInline)
@@ -374,26 +374,33 @@ class DonationAdmin(CustomModelAdmin):
     ('Extra Donor Info', {'fields': (('requestedvisibility', 'requestedalias', 'requestedemail','requestedsolicitemail', 'steamid'),)}),
     ('Other', {'fields': (('domain', 'domainId'),)}),
   ]
+
   def visible_donor_name(self, obj):
     if obj.donor:
       return obj.donor.visible_name()
     else:
       return None
+
   def set_readstate_ready(self, request, queryset):
     mass_assign_action(self, request, queryset, 'readstate', 'READY')
   set_readstate_ready.short_description = 'Set Read state to ready to read.'
+
   def set_readstate_ignored(self, request, queryset):
     mass_assign_action(self, request, queryset, 'readstate', 'IGNORED')
   set_readstate_ignored.short_description = 'Set Read state to ignored.'
+
   def set_readstate_read(self, request, queryset):
     mass_assign_action(self, request, queryset, 'readstate', 'READ')
   set_readstate_read.short_description = 'Set Read state to read.'
+
   def set_commentstate_approved(self, request, queryset):
     mass_assign_action(self, request, queryset, 'commentstate', 'APPROVED')
   set_commentstate_approved.short_description = 'Set Comment state to approved.'
+
   def set_commentstate_denied(self, request, queryset):
     mass_assign_action(self, request, queryset, 'commentstate', 'DENIED')
   set_commentstate_denied.short_description = 'Set Comment state to denied.'
+
   def cleanup_orphaned_donations(self, request, queryset):
     count = 0
     for donation in queryset.filter(donor=None, domain='PAYPAL', transactionstate='PENDING', timereceived__lte=datetime.utcnow() - timedelta(hours=8)):
@@ -406,11 +413,13 @@ class DonationAdmin(CustomModelAdmin):
     self.message_user(request, "Deleted %d donations." % count)
     viewutil.tracker_log(u'donation', u'Deleted {0} orphaned donations'.format(count), user=request.user)
   cleanup_orphaned_donations.short_description = 'Clear out incomplete donations.'
+
   def get_list_display(self, request):
     ret = list(self.list_display)
     if not request.user.has_perm('tracker.delete_all_donations'):
       ret.remove('transactionstate')
     return ret
+
   def get_readonly_fields(self, request, obj=None):
     perm = request.user.has_perm('tracker.delete_all_donations')
     ret = list(self.readonly_fields)
@@ -426,12 +435,23 @@ class DonationAdmin(CustomModelAdmin):
         ret.append('amount')
         ret.append('currency')
     return ret
+
   def has_change_permission(self, request, obj=None):
     return super(DonationAdmin, self).has_change_permission(request, obj) and \
            (obj == None or request.user.has_perm('tracker.can_edit_locked_events') or not obj.event.locked)
+
   def has_delete_permission(self, request, obj=None):
     return super(DonationAdmin, self).has_delete_permission(request, obj) and \
            (obj == None or obj.domain == 'LOCAL' or request.user.has_perm('tracker.delete_all_donations'))
+
+  def get_search_fields(self, request):
+    search_fields = list(self.search_fields_base)
+    if request.user.has_perm('tracker.view_emails'):
+      search_fields += ['donor__email', 'donor__paypalemail']
+    if request.user.has_perm('tracker.view_usernames'):
+      search_fields += ['donor__firstname', 'donor__lastname']
+    return search_fields
+
   def get_queryset(self, request):
     event = viewutil.get_selected_event(request)
     params = {}
@@ -440,6 +460,7 @@ class DonationAdmin(CustomModelAdmin):
     if event:
       params['event'] = event.id
     return filters.run_model_query('donation', params, user=request.user, mode='admin')
+
   actions = [set_readstate_ready, set_readstate_ignored, set_readstate_read, set_commentstate_approved, set_commentstate_denied, cleanup_orphaned_donations]
   def get_actions(self, request):
     actions = super(DonationAdmin, self).get_actions(request)
@@ -608,6 +629,7 @@ class EventAdmin(CustomModelAdmin):
   inlines = [EventBidInline]
   list_display = ['name', 'locked']
   list_editable = ['locked']
+  readonly_fields = ['scheduleid']
   fieldsets = [
     (None, { 'fields': ['short', 'name', 'receivername', 'targetamount', 'minimumdonation', 'date', 'timezone', 'locked'] }),
     ('Paypal', {
@@ -624,25 +646,9 @@ class EventAdmin(CustomModelAdmin):
     }),
     ('Google Document', {
       'classes': ['collapse'],
-      'fields': ['scheduleid', 'scheduletimezone', 'scheduledatetimefield', 'schedulegamefield', 'schedulerunnersfield', 'scheduleestimatefield', 'schedulesetupfield', 'schedulecommentatorsfield', 'schedulecommentsfield']
+      'fields': ['scheduleid']
     }),
   ]
-  def merge_schedule(self, request, queryset):
-    if queryset.count() != 1:
-      self.message_user(request, 'Only select one event for this action', level=messages.ERROR)
-      return
-    for event in queryset:
-      numRuns = viewutil.merge_schedule_gdoc(event)
-      self.message_user(request, "%d runs merged for %s." % (numRuns, event.name))
-      viewutil.tracker_log(u'schedule', u'Merged schedule for event {0}'.format(event), event=event, user=request.user)
-    for event in queryset:
-      result = event.start_push_notification(request)
-      if result == True:
-        self.message_user(request, 'Push notification started for %s.' % event.name)
-      elif result:
-        return result
-  merge_schedule.short_description = "Merge schedule for event (select one, do this once every 24 hours)"
-  actions = [merge_schedule]
 
 class PostbackURLForm(djforms.ModelForm):
   event = make_ajax_field(tracker.models.PostbackURL, 'event', 'event', initial=latest_event_id)
@@ -1105,17 +1111,17 @@ admin.site.register(tracker.models.BidSuggestion, BidSuggestionAdmin)
 admin.site.register(tracker.models.Donation, DonationAdmin)
 admin.site.register(tracker.models.Donor, DonorAdmin)
 admin.site.register(tracker.models.Event, EventAdmin)
+admin.site.register(tracker.models.SpeedRun, SpeedRunAdmin)
+admin.site.register(tracker.models.Runner, RunnerAdmin)
+admin.site.register(tracker.models.PostbackURL, PostbackURLAdmin)
+admin.site.register(tracker.models.Submission)
 admin.site.register(tracker.models.Prize, PrizeAdmin)
 admin.site.register(tracker.models.PrizeTicket, PrizeTicketAdmin)
 admin.site.register(tracker.models.PrizeCategory)
 admin.site.register(tracker.models.PrizeWinner, PrizeWinnerAdmin)
-admin.site.register(tracker.models.SpeedRun, SpeedRunAdmin)
-admin.site.register(tracker.models.Runner, RunnerAdmin)
-admin.site.register(tracker.models.Submission)
-admin.site.register(tracker.models.UserProfile)
-admin.site.register(tracker.models.PostbackURL, PostbackURLAdmin)
-admin.site.register(tracker.models.Log, LogAdmin)
 admin.site.register(tracker.models.DonorPrizeEntry, DonorPrizeEntryAdmin)
+admin.site.register(tracker.models.UserProfile)
+admin.site.register(tracker.models.Log, LogAdmin)
 admin.site.register(admin.models.LogEntry, AdminActionLogEntryAdmin)
 admin.site.register(tracker.models.Country)
 admin.site.register(tracker.models.CountryRegion, CountryRegionAdmin)
@@ -1124,27 +1130,27 @@ old_get_urls = admin.site.get_urls
 
 def get_urls():
   urls = old_get_urls()
-  return patterns('',
-                  url('select_event', select_event, name='select_event'),
-                  url('merge_bids', merge_bids_view, name='merge_bids'),
-                  url('merge_donors', merge_donors_view, name='merge_donors'),
-                  url('start_run/(?P<run>\d+)', start_run_view, name='start_run'),
-                  url('automail_prize_contributors', automail_prize_contributors, name='automail_prize_contributors'),
-                  url('draw_prize_winners', draw_prize_winners, name='draw_prize_winners'),
-                  url('automail_prize_winners', automail_prize_winners, name='automail_prize_winners'),
-                  url('automail_prize_accept_notifications', automail_prize_accept_notifications, name='automail_prize_accept_notifications'),
-                  url('automail_prize_shipping_notifications', automail_prize_shipping_notifications, name='automail_prize_shipping_notifications'),
-                  url('show_completed_bids', show_completed_bids, name='show_completed_bids'),
-                  url('process_donations', process_donations, name='process_donations'),
-                  url('read_donations', read_donations, name='read_donations'),
-                  url('process_prize_submissions', process_prize_submissions, name='process_prize_submissions'),
-                  url('process_pending_bids', process_pending_bids, name='process_pending_bids'),
-                  url('search_objects', views.search, name='search_objects'),
-                  url('edit_object', views.edit, name='edit_object'),
-                  url('add_object', views.add, name='add_object'),
-                  url('delete_object', views.delete, name='delete_object'),
-                  url('google_flow', google_flow, name='google_flow'),
-                  url(r'draw_prize/(?P<id>\d+)', views.draw_prize, name='draw_prize'),
-                  ) + urls
+  return [
+    url('select_event', select_event, name='select_event'),
+    url('merge_bids', merge_bids_view, name='merge_bids'),
+    url('merge_donors', merge_donors_view, name='merge_donors'),
+    url('start_run/(?P<run>\d+)', start_run_view, name='start_run'),
+    url('automail_prize_contributors', automail_prize_contributors, name='automail_prize_contributors'),
+    url('draw_prize_winners', draw_prize_winners, name='draw_prize_winners'),
+    url('automail_prize_winners', automail_prize_winners, name='automail_prize_winners'),
+    url('automail_prize_accept_notifications', automail_prize_accept_notifications, name='automail_prize_accept_notifications'),
+    url('automail_prize_shipping_notifications', automail_prize_shipping_notifications, name='automail_prize_shipping_notifications'),
+    url('show_completed_bids', show_completed_bids, name='show_completed_bids'),
+    url('process_donations', process_donations, name='process_donations'),
+    url('read_donations', read_donations, name='read_donations'),
+    url('process_prize_submissions', process_prize_submissions, name='process_prize_submissions'),
+    url('process_pending_bids', process_pending_bids, name='process_pending_bids'),
+    url('search_objects', views.search, name='search_objects'),
+    url('edit_object', views.edit, name='edit_object'),
+    url('add_object', views.add, name='add_object'),
+    url('delete_object', views.delete, name='delete_object'),
+    url('google_flow', google_flow, name='google_flow'),
+    url(r'draw_prize/(?P<id>\d+)', views.draw_prize, name='draw_prize'),
+  ] + urls
 admin.site.get_urls = get_urls
 admin.site.index_template = 'admin/tracker_admin.html'
