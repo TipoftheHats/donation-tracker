@@ -1,31 +1,36 @@
-from decimal import Decimal
-from dateutil.parser import parse as parse_date
 import datetime
 import random
+from decimal import Decimal
+
 import pytz
+from dateutil.parser import parse as parse_date
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 
 from django.test import TestCase, TransactionTestCase
 from django.core.exceptions import ValidationError
-from unittest import skip
+from django.test import TransactionTestCase
 
 import tracker.models as models
-import tracker.randgen as randgen
-import tracker.viewutil as viewutil
 import tracker.prizeutil as prizeutil
+import tracker.randgen as randgen
+
+noon = datetime.time(12, 0)
+today = datetime.date.today()
+today_noon = datetime.datetime.combine(today, noon)
+tomorrow = today + datetime.timedelta(days=1)
+tomorrow_noon = datetime.datetime.combine(tomorrow, noon)
+long_ago = today - datetime.timedelta(days=180)
+long_ago_noon = datetime.datetime.combine(long_ago, noon)
 
 
 class TestPrizeGameRange(TransactionTestCase):
 
     def setUp(self):
         self.rand = random.Random(None)
-        self.event = randgen.generate_event(self.rand)
+        self.event = randgen.generate_event(self.rand, startTime=today_noon)
         self.event.save()
-        self.eventStart = datetime.datetime.combine(
-            self.event.date, datetime.time(hour=12)).replace(tzinfo=pytz.utc)
 
-    @skip('Bad starttime save')
     def test_prize_range_single(self):
         runs = randgen.generate_runs(self.rand, self.event, 4, True)
         run = runs[1]
@@ -35,7 +40,6 @@ class TestPrizeGameRange(TransactionTestCase):
         self.assertEqual(1, prizeRuns.count())
         self.assertEqual(run.id, prizeRuns[0].id)
 
-    @skip('Bad starttime save')
     def test_prize_range_pair(self):
         runs = randgen.generate_runs(self.rand, self.event, 5, True)
         startRun = runs[2]
@@ -46,7 +50,6 @@ class TestPrizeGameRange(TransactionTestCase):
         self.assertEqual(startRun.id, prizeRuns[0].id)
         self.assertEqual(endRun.id, prizeRuns[1].id)
 
-    @skip('Bad starttime save')
     def test_prize_range_gap(self):
         runs = randgen.generate_runs(self.rand, self.event, 7, True)
         runsSlice = runs[2:5]
@@ -59,8 +62,8 @@ class TestPrizeGameRange(TransactionTestCase):
     def test_time_prize_no_range(self):
         runs = randgen.generate_runs(self.rand, self.event, 7, True)
         eventEnd = runs[-1].endtime
-        timeA = randgen.random_time(self.rand, self.eventStart, eventEnd)
-        timeB = randgen.random_time(self.rand, self.eventStart, eventEnd)
+        timeA = randgen.random_time(self.rand, self.event.datetime, eventEnd)
+        timeB = randgen.random_time(self.rand, self.event.datetime, eventEnd)
         randomStart = min(timeA, timeB)
         randomEnd = max(timeA, timeB)
         prize = randgen.generate_prize(
@@ -433,7 +436,6 @@ class TestPrizeMultiWin(TransactionTestCase):
             self.rand, startTime=self.eventStart)
         self.event.save()
 
-    @skip("Multiwin broken")
     def testWinMultiPrize(self):
         donor = randgen.generate_donor(self.rand)
         donor.save()
@@ -458,7 +460,6 @@ class TestPrizeMultiWin(TransactionTestCase):
         result, msg = prizeutil.draw_prize(prize)
         self.assertFalse(result, msg)
 
-    @skip("Multiwin broken")
     def testWinMultiPrizeWithAccept(self):
         donor = randgen.generate_donor(self.rand)
         donor.save()
@@ -477,7 +478,6 @@ class TestPrizeMultiWin(TransactionTestCase):
         result, msg = prizeutil.draw_prize(prize)
         self.assertFalse(result)
 
-    @skip("Multiwin broken")
     def testWinMultiPrizeWithDeny(self):
         donor = randgen.generate_donor(self.rand)
         donor.save()
@@ -496,7 +496,6 @@ class TestPrizeMultiWin(TransactionTestCase):
         result, msg = prizeutil.draw_prize(prize)
         self.assertFalse(result)
 
-    @skip("Multiwin broken")
     def testWinMultiPrizeLowerThanMaxWin(self):
         donor = randgen.generate_donor(self.rand)
         donor.save()

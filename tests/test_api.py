@@ -10,6 +10,15 @@ import pytz
 import datetime
 
 
+noon = datetime.time(12, 0)
+today = datetime.date.today()
+today_noon = datetime.datetime.combine(today, noon)
+tomorrow = today + datetime.timedelta(days=1)
+tomorrow_noon = datetime.datetime.combine(tomorrow, noon)
+long_ago = today - datetime.timedelta(days=180)
+long_ago_noon = datetime.datetime.combine(long_ago, noon)
+
+
 def format_time(dt):
     return dt.astimezone(pytz.utc).isoformat()[:-6] + 'Z'
 
@@ -56,10 +65,10 @@ class APITestCase(TransactionTestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.locked_event = models.Event.objects.create(
-            date=datetime.date.today() - datetime.timedelta(days=180), targetamount=5, short='locked', name='Locked Event'
+            datetime=long_ago_noon, targetamount=5, short='locked', name='Locked Event'
         )
         self.event = models.Event.objects.create(
-            date=datetime.date.today(), targetamount=5, short='event', name='Test Event'
+            datetime=today_noon, targetamount=5, short='event', name='Test Event'
         )
         self.user = User.objects.create(username='test')
         self.add_user = User.objects.create(username='add')
@@ -150,7 +159,7 @@ class TestSpeedRun(APITestCase):
         self.run1 = models.SpeedRun.objects.create(
             name='Test Run',
             category='test%',
-            giantbomb_id=11949,
+            giantbomb_id=0x5eadbeef,
             console='NES',
             run_time='0:45:00',
             setup_time='0:05:00',
@@ -174,7 +183,7 @@ class TestSpeedRun(APITestCase):
         self.runner2 = models.Runner.objects.create(name='PJ')
         self.run1.runners.add(self.runner1)
         self.event2 = models.Event.objects.create(
-            date=datetime.date.today() + datetime.timedelta(days=1), targetamount=5, short='event2',
+            datetime=tomorrow_noon, targetamount=5, short='event2',
         )
         self.run5 = models.SpeedRun.objects.create(
             name='Test Run 5', run_time='0:05:00', setup_time='0', order=1, event=self.event2
