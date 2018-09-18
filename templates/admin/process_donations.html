@@ -192,7 +192,7 @@ function runSearch() {
         "</thread>" +
         "<tbody");
 
-      var donations = eval(responseText);
+      var donations = JSON.parse(responseText);
 
       var language = $(partitionLanguageElem).val();
 

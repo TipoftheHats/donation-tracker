@@ -116,11 +116,15 @@ function addRow(donation) {
   row.append($("<td class='amount-column'>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
   row.append($("<td class='donation-comment'>").append(safeHtml(donation['fields']['comment'])));
   row.append($("<td class='mod-comment'>").append(safeHtml(donation['fields']['modcomment'])));
+  if (donation['fields']['commentstate'] === 'FLAGGED') {
+    row.css('background-color', 'cyan');
+  }
 
   row.append($("<td class='button-column'>")
     .append(makeEditButton(row, donation, "Read", "Read on the Air", { readstate: "READ", commentstate: "APPROVED" }))
     .append(makeEditButton(row, donation, "Ignore", "Ignored", { readstate: "IGNORED", commentstate: "APPROVED" }))
-    .append(makeEditButton(row, donation, "Block", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" })));
+    .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" }))
+    .append(makeEditButton(row, donation, "Pin Comment", "Pinned comment", { commentstate: "FLAGGED" })));
 
   row.append($('<td class="statuscell">'));
 
