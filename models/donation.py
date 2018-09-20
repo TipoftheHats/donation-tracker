@@ -31,7 +31,7 @@ _currencyChoices = (('USD','US Dollars'),('CAD', 'Canadian Dollars'))
 
 DonorVisibilityChoices = (('FULL', 'Fully Visible'), ('FIRST', 'First Name, Last Initial'), ('ALIAS', 'Alias Only'), ('ANON', 'Anonymous'))
 
-DonationDomainChoices = (('LOCAL', 'Local'), ('CHIPIN', 'ChipIn'), ('PAYPAL', 'PayPal'))
+DonationDomainChoices = (('LOCAL', 'Local'), ('CHIPIN', 'ChipIn'), ('PAYPAL', 'PayPal'), ('SCRAPTF', 'Scrap.TF'))
 
 LanguageChoices = (('un', 'Unknown'), ('en', 'English'), ('fr', 'French'), ('de', 'German'))
 

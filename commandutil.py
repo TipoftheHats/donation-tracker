@@ -5,13 +5,13 @@ class TrackerCommand(BaseCommand):
 
     def __init__(self):
         self.verbosity = 0
-    
+
     def message(self, message, verbosity_level=1):
         if self.verbosity >= verbosity_level:
             if isinstance(message, unicode):
                 message = message.encode('utf-8')
             print(message)
-            
+
     def handle(self, *args, **options):
         if 'verbosity' in options:
             self.verbosity = options['verbosity']
