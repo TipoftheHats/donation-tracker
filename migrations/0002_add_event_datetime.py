@@ -9,7 +9,7 @@ import tracker.validators
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tracker', '0001_squashed_0039_upgrade_to_19'),
+        ('tracker', '0001_initial_squashed_0041_merge'),
     ]
 
     operations = [
