@@ -5,7 +5,7 @@ import traceback
 
 from django.conf import settings
 from django.core.management.base import CommandError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from structlog import get_logger
 
 from tracker.models import Donation, DonationBid, BidSuggestion
@@ -74,6 +74,7 @@ class Command(commandutil.TrackerCommand):
         amount = Decimal(donation['cash_value'])
         time = datetime.fromtimestamp(donation['confirmed_time'], tz=pytz.utc)
         comment = donation.get('message', '')
+        commentstate = 'PENDING' if len(comment) > 0 else 'ABSENT'
 
         user = donation.get('user', {})
         alias = user.get('name')
@@ -82,9 +83,11 @@ class Command(commandutil.TrackerCommand):
 
         d = Donation(domain='SCRAPTF',
                      domainId=domain_id,
+                     transactionstate='COMPLETED',
                      amount=amount,
                      timereceived=time,
                      comment=comment,
+                     commentstate=commentstate,
                      requestedalias=alias,
                      requestedemail=email,
                      steamid=steamid)

@@ -62,3 +62,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 USING_RAVEN = False
 # RAVEN_DSN = '' # Get Raven DSN from Sentry
+
+USING_SCRAPTF = False
+# SCRAPTF_API_KEY = ''
