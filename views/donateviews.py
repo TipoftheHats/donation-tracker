@@ -44,7 +44,6 @@ def paypal_cancel(request):
 def paypal_return(request):
   return views_common.tracker_response(request, "tracker/paypal_return.html")
 
-
 def process_form(request, event):
   bidsFormPrefix = "bidsform"
   prizeFormPrefix = "prizeForm"
