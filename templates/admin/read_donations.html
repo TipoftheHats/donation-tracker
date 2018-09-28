@@ -120,7 +120,7 @@ function addRow(donation) {
   row.append($("<td class='button-column'>")
     .append(makeEditButton(row, donation, "Read", "Read on the Air", { readstate: "READ", commentstate: "APPROVED" }))
     .append(makeEditButton(row, donation, "Ignore", "Ignored", { readstate: "IGNORED", commentstate: "APPROVED" }))
-    .append(makeEditButton(row, donation, "Block", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" }))
+    .append(makeEditButton(row, donation, "Block", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" }));
 
   row.append($('<td class="statuscell">'));
 
