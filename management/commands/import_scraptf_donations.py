@@ -12,6 +12,7 @@ from structlog import get_logger
 from tracker.models import Donor, Donation, Bid, DonationBid, BidSuggestion
 from tracker.scraptf import ScrapTF
 import tracker.commandutil as commandutil
+import tracker.eventutil as eventutil
 import tracker.viewutil as viewutil
 
 log = get_logger()
@@ -155,3 +156,5 @@ class Command(commandutil.TrackerCommand):
                                   name=suggestion)
                 s.full_clean()
                 s.save()
+
+        eventutil.post_donation_to_postbacks(d)
