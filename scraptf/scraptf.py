@@ -1,4 +1,6 @@
+from datetime import datetime
 import requests
+import pytz
 from structlog import get_logger
 
 GET_DONATIONS_ENDPOINT = 'https://dev.scrap.tf/api/fundraisers/getdonations.php'
@@ -26,7 +28,8 @@ class ScrapTF:
         payload = {'key': self.api_key,
                    'fundraiser': fundraiser}
         if after:
-            payload['confirmed_after'] = after.strftime('%s')
+            seconds_since_epoch = (after - pytz.utc.localize(datetime(1970,1,1))).total_seconds()
+            payload['confirmed_after'] = str(int(seconds_since_epoch))
 
         if count:
             payload['num'] = count
