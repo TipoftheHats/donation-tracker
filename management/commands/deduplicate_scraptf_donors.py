@@ -40,6 +40,23 @@ class Command(commandutil.TrackerCommand):
                  tracker_event=event,
                  num=len(scraptf_donations))
 
+        if options['report']:
+            self.report()
+            return
+
+        if not options['actually_do_the_thing']:
+            print 'Action not confirmed. Set --actually-do-the-thing. Exiting.'
+            return
+
+        for donation in scraptf_donations.iterator():
+            root = self.find_root_donor(donation)
+            if root:
+                log.info('Merging donors.',
+                         dupe=dupeDonor,
+                         root=root)
+                viewutil.merge_donors(root, [dupeDonor])
+
+    def report(self):
         results = []
         for donation in scraptf_donations.iterator():
             root = self.find_root_donor(donation)
@@ -47,20 +64,9 @@ class Command(commandutil.TrackerCommand):
                 results.append((donation.donor, root))
 
         log.info('Root donors ready.', num=len(results))
-        
-        if options['report']:
-            print 'Report finished.'
-            return
+        print results
+        print 'Report finished.'
 
-        if not options['actually_do_the_thing']:
-            print 'Action not confirmed. Set --actually-do-the-thing. Exiting.'
-            return
-
-        for dupeDonor, root in results:
-            log.info('Merging donors.',
-                     dupe=dupeDonor,
-                     root=root)
-            viewutil.merge_donors(root, [dupeDonor])
 
     def find_root_donor(self, donation):
         """
