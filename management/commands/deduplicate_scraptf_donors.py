@@ -41,7 +41,7 @@ class Command(commandutil.TrackerCommand):
                  num=len(scraptf_donations))
 
         if options['report']:
-            self.report()
+            self.report(scraptf_donations)
             return
 
         if not options['actually_do_the_thing']:
@@ -51,12 +51,14 @@ class Command(commandutil.TrackerCommand):
         for donation in scraptf_donations.iterator():
             root = self.find_root_donor(donation)
             if root:
+                dupe = donation.donor
                 log.info('Merging donors.',
-                         dupe=dupeDonor,
-                         root=root)
-                viewutil.merge_donors(root, [dupeDonor])
+                         dupe="#{}: {} {}".format(dupe.id, dupe.email, repr(dupe)),
+                         root="#{}: {} {}".format(root.id, root.email, repr(root)),
+                         )
+                viewutil.merge_donors(root, [dupe])
 
-    def report(self):
+    def report(self, scraptf_donations):
         results = []
         for donation in scraptf_donations.iterator():
             root = self.find_root_donor(donation)
