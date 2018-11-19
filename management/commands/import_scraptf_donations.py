@@ -20,14 +20,15 @@ log = get_logger()
 DONOR_ALIAS_MAX_LENGTH = Donor._meta.get_field('alias').max_length
 
 
+# TODO: event arg ignored
 class Command(commandutil.TrackerCommand):
     help = 'Import item donations from Scrap.TF'
 
     def add_arguments(self, parser):
         parser.add_argument('-f', '--fundraiser', required=True,
                             help='the name of the Scrap.TF fundraiser')
-        parser.add_argument('-e', '--event', required=True,
-                            help='specify the tracker event to import donations to',
+        parser.add_argument('-e-dont-use', '--event-dont-use', required=True,
+                            help='(IGNORED) specify the tracker event to import donations to',
                             type=viewutil.get_event)
 
     def handle(self, *args, **options):
@@ -70,7 +71,7 @@ class Command(commandutil.TrackerCommand):
     # Can't use latest() here because we fetch ScrapTF donations in bulk, no
     # guarantees made about order of insertion.
     def get_latest_scraptf_donation(self):
-        return Donation.objects.filter(domain__exact='SCRAPTF').order_by('-timereceived').first()
+        return Donation.objects.filter(domain='SCRAPTF').order_by('-timereceived').first()
 
     @transaction.atomic
     def commit_scraptf_donation(self, donation):
