@@ -210,6 +210,7 @@ class DonationBidFormSetBase(forms.BaseFormSet):
                         "Error, cannot bid more than once for the same bid in the same donation.")
                 bids.add(form.cleaned_data['bid'])
 
+
 DonationBidFormSet = formset_factory(
     DonationBidForm, formset=DonationBidFormSetBase, max_num=DonationBidFormSetBase.max_bids)
 
@@ -277,6 +278,7 @@ class PrizeTicketFormSetBase(forms.BaseFormSet):
                         "Error, total ticket amount cannot exceed donation amount.")
                 currentPrizes.add(form.cleaned_data['prize'])
 
+
 PrizeTicketFormSet = formset_factory(
     PrizeTicketForm, formset=PrizeTicketFormSetBase, max_num=PrizeTicketFormSetBase.max_tickets)
 
@@ -321,7 +323,8 @@ class MergeObjectsForm(forms.Form):
         self.model = model
         self.choices = []
         for objId in objects:
-            choice_name = '#%d: ' % objId + unicode(self.model.objects.get(id=objId))
+            choice_name = '#%d: ' % objId + \
+                unicode(self.model.objects.get(id=objId))
             self.choices.append((objId, choice_name))
         self.fields['root'] = forms.ChoiceField(
             choices=self.choices, required=True)
@@ -650,9 +653,11 @@ class RegistrationForm(forms.Form):
                         username=username, email=email, is_active=False)
                 except django.db.utils.IntegrityError as e:
                     tries += 1
-                    username = tracker.util.random_num_replace(username, 8, max_length=30)
+                    username = tracker.util.random_num_replace(
+                        username, 8, max_length=30)
             if tries >= 5:
-                raise forms.ValidationError('Something horrible happened, please try again')
+                raise forms.ValidationError(
+                    'Something horrible happened, please try again')
         if domain is None:
             domain = viewutil.get_request_server_url(request)
         return auth.send_registration_mail(domain, user, template=email_template, sender=from_email, token_generator=token_generator)
