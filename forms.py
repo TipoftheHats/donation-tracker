@@ -138,7 +138,7 @@ class DonationBidForm(forms.Form):
                 raise forms.ValidationError(
                     "This bid not open for new donations anymore.")
         except Exception as e:
-            raise forms.ValidationError("Bid does not exist.")
+            raise forms.ValidationError("Bid does not exist or is closed.")
         return bid
 
     def clean_amount(self):
@@ -323,8 +323,7 @@ class MergeObjectsForm(forms.Form):
         self.model = model
         self.choices = []
         for objId in objects:
-            choice_name = '#%d: ' % objId + \
-                unicode(self.model.objects.get(id=objId))
+            choice_name = '#%d: ' % objId + unicode(self.model.objects.get(id=objId))
             self.choices.append((objId, choice_name))
         self.fields['root'] = forms.ChoiceField(
             choices=self.choices, required=True)
