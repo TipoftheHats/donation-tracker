@@ -9,9 +9,11 @@ import tracker.models as models
 import tracker.viewutil as viewutil
 
 # TODO: this is 2018, we ought to be using requests
+
+
 def post_donation_to_postbacks(donation):
     event_donations = filters.run_model_query('donation',
-                                              {'event': donation.event.id })
+                                              {'event': donation.event.id})
     total = event_donations.aggregate(amount=Sum('amount'))['amount']
 
     data = {

@@ -53,8 +53,10 @@ class Command(commandutil.TrackerCommand):
             if root:
                 dupe = donation.donor
                 log.info('Merging donors.',
-                         dupe="#{}: {} {}".format(dupe.id, dupe.email, repr(dupe)),
-                         root="#{}: {} {}".format(root.id, root.email, repr(root)),
+                         dupe="#{}: {} {}".format(
+                             dupe.id, dupe.email, repr(dupe)),
+                         root="#{}: {} {}".format(
+                             root.id, root.email, repr(root)),
                          )
                 viewutil.merge_donors(root, [dupe])
 
@@ -68,7 +70,6 @@ class Command(commandutil.TrackerCommand):
         log.info('Root donors ready.', num=len(results))
         print results
         print 'Report finished.'
-
 
     def find_root_donor(self, donation):
         """

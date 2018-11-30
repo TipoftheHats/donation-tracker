@@ -1,6 +1,6 @@
 import os
 
-ALLOWED_HOSTS = ['localhost', 'your.domain.name'];
+ALLOWED_HOSTS = ['localhost', 'your.domain.name']
 
 # this is used as part of the auto-mailing services to identify where
 # to redirect registration and password resets to
@@ -11,16 +11,16 @@ DEBUG = True
 
 # You can add your e-mail if you want to receive notifications of failures I think , but its probably not a good idea
 ADMINS = [
-	#('Your Name', 'your_email@example.com'),
+    #('Your Name', 'your_email@example.com'),
 ]
 
 # You can also make local sqlite databases in your current directory
 # if you want to test changes to the data model
 DATABASES = {
     'default': {
-      'ENGINE': 'django.db.backends.sqlite3',
-      'NAME': 'db/testdb',
-  },
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': 'db/testdb',
+    },
 }
 
 TIME_ZONE = 'America/New_York'
@@ -31,8 +31,8 @@ SITE_PREFIX = '/'
 SECRET_KEY = 'IHaveNoIdeaWhatThisIsOrWhatItDoes'
 
 STATICFILES_DIRS = (
-  os.path.abspath('tracker/static/'),
-);
+    os.path.abspath('tracker/static/'),
+)
 
 STATIC_URL = "/static" + SITE_PREFIX
 STATIC_ROOT = "/var/www/static" + SITE_PREFIX
@@ -56,7 +56,7 @@ HAS_GIANTBOMB_API_KEY = False
 # GIANTBOMB_API_KEY = 'Itsreallynicetohaveanditsfreetomakeanaccountbutnotneccessary'
 
 HAS_STEAM_API_KEY = False
-#STEAM_API_KEY = 'MY_KEY' # Grab key from here: https://steamcommunity.com/dev/apikey
+# STEAM_API_KEY = 'MY_KEY' # Grab key from here: https://steamcommunity.com/dev/apikey
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 

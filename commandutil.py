@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
+
 class TrackerCommand(BaseCommand):
     requires_system_checks = False
 
@@ -19,4 +20,3 @@ class TrackerCommand(BaseCommand):
             self.verbosity = 1
         self.message("Positional arguments: {0}".format(args), 3)
         self.message("Named arguments: {0}".format(options), 3)
-

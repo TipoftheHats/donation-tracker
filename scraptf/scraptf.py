@@ -28,7 +28,8 @@ class ScrapTF:
         payload = {'key': self.api_key,
                    'fundraiser': fundraiser}
         if after:
-            seconds_since_epoch = (after - pytz.utc.localize(datetime(1970,1,1))).total_seconds()
+            seconds_since_epoch = (
+                after - pytz.utc.localize(datetime(1970, 1, 1))).total_seconds()
             payload['confirmed_after'] = str(int(seconds_since_epoch))
 
         if count:
