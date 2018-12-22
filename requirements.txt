@@ -22,4 +22,5 @@ rsa==3.2
 six==1.10.0
 social-auth-app-django==1.2.0
 social-auth-core==1.4.0
+webpack-manifest==1.0.0
 -e git+https://github.com/GamesDoneQuick/django-paypal.git@gdqchanges#egg=django-paypal

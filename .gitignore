@@ -5,3 +5,8 @@ build
 *.egg-info
 .idea
 .direnv
+.webpack_build_cache/
+*.manifest.json
+node_modules/
+static/gen/
+yarn-error.log
