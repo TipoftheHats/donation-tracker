@@ -1,17 +1,17 @@
-import re
 import operator
+import re
 from decimal import Decimal
 
-from django.db.models import Count, Sum, Max, Avg, Q, Func
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
+from django.db import transaction
+from django.db.models import Count, Sum, Max, Avg, Q
 from django.db.models.functions import Coalesce
 from django.http import Http404
-from django.contrib.auth import get_user_model
-from django.db import transaction
-from django.conf import settings
 
-from .models import *
 from . import filters
+from .models import *
 
 
 def get_default_email_host_user():
@@ -26,13 +26,11 @@ def admin_url(obj):
     return reverse("admin:%s_%s_change" % (obj._meta.app_label, obj._meta.object_name.lower()), args=(obj.pk,), current_app=obj._meta.app_label)
 
 # Adapted from http://djangosnippets.org/snippets/1474/
-
+# TODO: use request.build_absolute_uri instead
 
 def get_request_server_url(request):
     if request:
-        serverName = request.META['SERVER_NAME']
-        protocol = "https://" if request.is_secure() else "http://"
-        return protocol + serverName
+        return request.build_absolute_uri('/')
     else:
         raise Exception("Request was null.")
 

@@ -1,13 +1,11 @@
 from decimal import Decimal
 import pytz
 import json
-import urllib2
 import datetime
 import random
 import traceback
 
 from django.db import transaction
-from django.db.models import Sum
 from django.http import HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache, cache_page
@@ -16,8 +14,6 @@ from django.core.urlresolvers import reverse
 from django.shortcuts import redirect
 
 from paypal.standard.forms import PayPalPaymentsForm
-from paypal.standard.ipn.models import PayPalIPN
-from paypal.standard.ipn.forms import PayPalIPNForm
 
 import post_office.mail
 
@@ -101,23 +97,20 @@ def process_form(request, event):
                     donation.full_clean()
                     donation.save()
 
-                serverURL = viewutil.get_request_server_url(request)
-
                 paypal_dict = {
                     "amount": str(donation.amount),
                     "cmd": "_donations",
                     "business": donation.event.paypalemail,
                     "item_name": donation.event.receivername,
-                    "notify_url": serverURL + reverse('tracker:ipn'),
-                    "return_url": serverURL + reverse('tracker:paypal_return'),
-                    "cancel_return": serverURL + reverse('tracker:paypal_cancel'),
+                    "notify_url": request.build_absolute_uri(reverse('tracker:ipn')),
+                    "return": request.build_absolute_uri(reverse('tracker:paypal_return')),
+                    "cancel_return": request.build_absolute_uri(reverse('tracker:paypal_cancel')),
                     "custom": str(donation.id) + ":" + donation.domainId,
                     "currency_code": donation.event.paypalcurrency,
                     "no_shipping": 0,
                 }
                 # Create the form instance
-                form = PayPalPaymentsForm(
-                    button_type="donate", sandbox=donation.event.usepaypalsandbox, initial=paypal_dict)
+                form = PayPalPaymentsForm(button_type="donate", initial=paypal_dict)
                 context = {"event": donation.event, "form": form}
                 return views_common.tracker_response(request, "tracker/paypal_redirect.html", context), None, None
         else:
@@ -252,7 +245,7 @@ def ipn(request):
                 }
                 post_office.mail.send(recipients=[donation.donor.email], sender=donation.event.donationemailsender,
                                       template=donation.event.donationemailtemplate, context=formatContext)
-                eventutil.post_donation_to_postbacks(donation)
+            eventutil.post_donation_to_postbacks(donation)
 
         elif donation.transactionstate == 'CANCELLED':
             # eventually we may want to send out e-mail for some of the possible cases
