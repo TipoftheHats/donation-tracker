@@ -1,9 +1,10 @@
-from django.db.models import Count, Sum, Max, Avg, Q, F
-from tracker.models import *
 from datetime import *
-import pytz
-import viewutil
+
 import dateutil.parser
+import pytz
+from django.db.models import Q, F
+
+from tracker.models import *
 
 # TODO: fix these to make more sense, it should in general only be querying top-level bids
 
@@ -190,8 +191,8 @@ _SpecificFields = {
         'name': 'name__icontains',
         'short': 'short__iexact',
         'locked': 'locked',
-        'date_lte': 'date__lte',
-        'date_gte': 'date__gte',
+        'datetime_lte': 'datetime__lte',
+        'datetime_gte': 'datetime__gte',
     },
     'prize': {
         'event': 'event',
@@ -710,5 +711,5 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
     elif model == 'event':
         if feedName == 'future':
             offsettime = default_time(params.get('offset', None))
-            query = query.filter(date__gte=offsettime)
+            query = query.filter(datetime__gte=offsettime)
     return query

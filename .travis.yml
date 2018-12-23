@@ -15,7 +15,6 @@ install:
 
    # Install requirements
   - pip install -r tracker/requirements.txt
-  - pip install -r tracker_ui/requirements.txt
 script:
   - cd ~/toplevel && cp tracker/tests/travis_local.py local.py && python manage.py test
 
