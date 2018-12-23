@@ -9,7 +9,6 @@ from django.db import migrations, models
 import django.db.models.deletion
 import django.utils.timezone
 import mptt.fields
-import oauth2client.django_orm
 import timezone_field.fields
 import tracker.models.event
 import tracker.models.fields
