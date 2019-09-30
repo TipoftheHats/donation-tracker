@@ -58,8 +58,7 @@ def process_form(request, event):
                 with transaction.atomic():
                     donation = models.Donation(amount=commentform.cleaned_data['amount'],
                                                timereceived=pytz.utc.localize(datetime.datetime.utcnow()), domain='PAYPAL',
-                                               domainId=str(random.getrandbits(128)), event=event,
-                                               testdonation=event.usepaypalsandbox)
+                                               domainId=str(random.getrandbits(128)), event=event)
                     if commentform.cleaned_data['comment']:
                         donation.comment = commentform.cleaned_data['comment']
                         donation.commentstate = "PENDING"
@@ -136,7 +135,7 @@ def process_form(request, event):
 @csrf_exempt
 def donate(request, event):
     event = viewutil.get_event(event)
-    if event.locked:
+    if event.locked or not event.allow_donations:
         raise Http404
     commentform, bidsform, prizesform = process_form(request, event)
     if not bidsform:  # redirect

@@ -71,7 +71,7 @@ def admin(request):
 @csrf_protect
 def donate(request, event):
     event = viewutil.get_event(event)
-    if event.locked:
+    if event.locked or not event.allow_donations:
         raise Http404
 
     bundle = webpack_manifest.load(
@@ -89,7 +89,7 @@ def donate(request, event):
         return commentform
 
     def bid_parent_info(bid):
-        if bid != None:
+        if bid is not None:
             return {
                 'id': bid.id,
                 'name': bid.name,
@@ -117,6 +117,7 @@ def donate(request, event):
             result['runname'] = 'Event Wide'
         if bid.allowuseroptions:
             result['custom'] = True
+            result['maxlength'] = bid.option_max_length
         return result
 
     bids = filters.run_model_query('bidtarget',
@@ -172,6 +173,7 @@ def donate(request, event):
             })),
             'props': mark_safe(json.dumps({
                 'event': json.loads(serializers.serialize('json', [event]))[0]['fields'],
+                'minimumDonation': float(event.minimumdonation),
                 'prizes': prizesArray,
                 'incentives': bidsArray,
                 'initialForm': initialForm,

@@ -62,8 +62,6 @@ thead th {
 
 </style>
 
-<link href="{% static "css/ajax_select.css" %}" type="text/css" media="ajax" rel="stylesheet" />
-<script src="{% static "js/ajax_select.js" %}"></script>
 <link href="{% static "adminprocessing.css" %}" type="text/css" media="ajax" rel="stylesheet" />
 <script src="{% static "adminprocessing.js" %}"></script>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
@@ -121,12 +119,20 @@ function addRow(donation) {
   row.append($("<td class='donation-comment'>").append(safeHtml(donation['fields']['comment'])));
   row.append($("<td class='mod-comment'>").append(safeHtml(donation['fields']['modcomment'])));
 
-  row.append($("<td class='button-column'>")
+  var buttons = $("<td class='button-column'>");
+  buttons
     .append(makeEditButton(row, donation, "Read", "Read on the Air", { readstate: "READ", commentstate: "APPROVED" }))
     .append(makeEditButton(row, donation, "Ignore", "Ignored", { readstate: "IGNORED", commentstate: "APPROVED" }))
-    .append(makeEditButton(row, donation, "Block", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" })));
-    .append(makeEditButton(row, donation, "Pin Comment", "Pinned comment", { commentstate: "FLAGGED" })));
+    .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED" }));
+  if (donation.fields.commentstate === 'FLAGGED') {
+      buttons
+        .append(makeEditButton(row, donation, "Unpin Comment", "Unpinned comment", { commentstate: "APPROVED" }));
+  } else {
+      buttons
+        .append(makeEditButton(row, donation, "Pin Comment", "Pinned comment", { commentstate: "FLAGGED" }));
+  }
 
+  row.append(buttons);
   row.append($('<td class="statuscell">'));
 
   if (donation['fields']['prioritystate'] == true) {
@@ -163,7 +169,7 @@ function runSearch() {
   $("#id_loading").html("Loading...");
 
   trackerAPI.searchObjects("donation", searchParams, function(status, responseText) {
-    if (status == 200) {
+    if (status === 200) {
 
       var resultsTable = $("#id_result_set");
 
@@ -180,15 +186,25 @@ function runSearch() {
         "</thread>" +
         "<tbody");
 
-      var donations = eval(responseText);
+      var donations = JSON.parse(responseText);
 
       var language = $(partitionLanguageElem).val();
 
-      for (var i in donations) {
-        if (language == 'all' || donations[i]['fields']["commentlanguage"] == language) {
-          addRow(donations[i]);
+      donations.sort(function(a, b) {
+        if (a.fields.commentstate === 'FLAGGED' && b.fields.commentstate !== 'FLAGGED') {
+          return -1;
         }
-      }
+        if (a.fields.commentstate !== 'FLAGGED' && b.fields.commentstate === 'FLAGGED') {
+          return 1;
+        }
+        return Math.max(1, Math.min(-1, a.pk - b.pk));
+      });
+
+      donations.forEach(function(donation) {
+        if (language === 'all' || donation['fields']["commentlanguage"] === language) {
+          addRow(donation);
+        }
+      });
 
       $("#id_loading").html("");
 
@@ -213,7 +229,7 @@ function runSearch() {
 
 {% block content %}
 
-<label>Language</label>
+<label>Language
 <select id="partition_language">
   <option value="all">All</option>
   <option value="en">English</option>
@@ -221,6 +237,7 @@ function runSearch() {
   <option value="de">German</option>
   <option value="un">Unknown</option>
 </select>
+</label>
 <button onclick="runSearch();">Refresh</button>
 
 <span id="id_loading"></span>

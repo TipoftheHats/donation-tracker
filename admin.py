@@ -10,9 +10,9 @@ from django.contrib import messages
 from django.contrib.admin import SimpleListFilter
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import permission_required, REDIRECT_FIELD_NAME
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.urlresolvers import reverse
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import render, redirect
 from django.utils.safestring import mark_safe
 
@@ -30,8 +30,7 @@ def admin_auth(perm=None, redirect_field_name=REDIRECT_FIELD_NAME, login_url='ad
     def impl_dec(viewFunc):
         wrapFunc = viewFunc
         if perm:
-            wrapFunc = permission_required(
-                perm, raise_exception=True)(viewFunc)
+            wrapFunc = permission_required(perm, raise_exception=True)(viewFunc)
         return staff_member_required(wrapFunc, redirect_field_name=redirect_field_name, login_url=login_url)
     return impl_dec
 
@@ -110,9 +109,8 @@ class BidParentFilter(SimpleListFilter):
 
     def queryset(self, request, queryset):
         try:
-            queryset = queryset.filter(
-                parent__isnull=True if int(self.value()) == 1 else False)
-        except TypeError, ValueError:  # self.value cannot be converted to int for whatever reason
+            queryset = queryset.filter(parent__isnull=True if int(self.value()) == 1 else False)
+        except (TypeError, ValueError):  # self.value cannot be converted to int for whatever reason
             pass
         return queryset
 
@@ -269,7 +267,8 @@ class BidAdmin(CustomModelAdmin):
     readonly_fields = ('parent', 'parent_', 'total')
     fieldsets = [
         (None, {'fields': ['name', 'state', 'description', 'shortdescription',
-                           'goal', 'istarget', 'allowuseroptions', 'revealedtime', 'total']}),
+                           'goal', 'istarget', 'allowuseroptions',
+                           'option_max_length', 'revealedtime', 'total']}),
         ('Link Info', {'fields': [
          'event', 'speedrun', 'parent_', 'biddependency']}),
     ]
@@ -736,15 +735,17 @@ class EventAdmin(CustomModelAdmin):
     form = EventForm
     search_fields = ('short', 'name')
     inlines = [EventBidInline]
-    list_display = ['name', 'locked']
-    list_editable = ['locked']
+    list_display = ['name', 'locked', 'allow_donations']
+    list_editable = ['locked', 'allow_donations']
     readonly_fields = ['scheduleid']
     fieldsets = [
         (None, {'fields': ['short', 'name', 'receivername', 'targetamount',
-                           'minimumdonation', 'datetime', 'timezone', 'locked']}),
+                           'use_one_step_screening', 'minimumdonation',
+                           'auto_approve_threshold', 'datetime', 'timezone',
+                           'locked', 'allow_donations']}),
         ('Paypal', {
             'classes': ['collapse'],
-            'fields': ['paypalemail', 'usepaypalsandbox', 'paypalcurrency', ]
+            'fields': ['paypalemail', 'paypalcurrency', ]
         }),
         ('Donation Autoreply', {
             'classes': ['collapse', ],
@@ -816,11 +817,12 @@ class PrizeInline(CustomStackedInline):
 class PrizeAdmin(CustomModelAdmin):
     form = PrizeForm
     list_display = ('name', 'category', 'bidrange', 'games', 'start_draw_time', 'end_draw_time',
-                    'sumdonations', 'randomdraw', 'event', 'winners_', 'provider', 'handler')
+                    'sumdonations', 'randomdraw', 'event', 'winners_', 'provider', 'handler', 'key_code',
+                    'claimed', 'unclaimed')
     list_filter = ('event', 'category', 'state', PrizeListFilter)
     fieldsets = [
         (None, {'fields': ['name', 'description', 'shortdescription', 'image',
-                           'altimage', 'event', 'category', 'requiresshipping', 'handler']}),
+                           'altimage', 'event', 'category', 'requiresshipping', 'handler', 'key_code']}),
         ('Contributor Information', {
             'fields': ['provider', 'creator', 'creatoremail', 'creatorwebsite', 'extrainfo', 'estimatedvalue', 'acceptemailsent', 'state', 'reviewnotes', ]}),
         ('Drawing Parameters', {
@@ -834,10 +836,24 @@ class PrizeAdmin(CustomModelAdmin):
 
     def winners_(self, obj):
         winners = obj.get_winners()
-        if len(winners) > 0:
-            return reduce(lambda x, y: x + " ; " + y, map(lambda x: unicode(x), winners))
+        if obj.key_code:
+            return len(winners)
+        elif len(winners) > 0:
+            return '; '.join(unicode(x) for x in winners)
         else:
             return 'None'
+
+    def claimed(self, obj):
+        if obj.key_code:
+            return obj.prizekey_set.exclude(prize_winner=None).count()
+        else:
+            return 'N/A'
+
+    def unclaimed(self, obj):
+        if obj.key_code:
+            return obj.prizekey_set.filter(prize_winner=None).count()
+        else:
+            return 'N/A'
 
     def bidrange(self, obj):
         s = unicode(obj.minimumbid)
@@ -861,18 +877,25 @@ class PrizeAdmin(CustomModelAdmin):
     def draw_prize_internal(self, request, queryset, limit):
         numDrawn = 0
         for prize in queryset:
-            if limit == None:
-                limit = prize.maxwinners
-            numToDraw = min(limit, prize.maxwinners -
-                            prize.current_win_count())
-            drawingError = False
-            while not drawingError and numDrawn < numToDraw:
-                drawn, msg = prizeutil.draw_prize(prize)
-                if not drawn:
-                    self.message_user(request, msg, level=messages.ERROR)
-                    drawingError = True
+            if prize.key_code:
+                drawn, msg = prizeutil.draw_keys(prize)
+                if drawn:
+                    numDrawn += len(msg['winners'])
                 else:
-                    numDrawn += 1
+                    messages.error(request, msg['error'])
+            else:
+                if limit == None:
+                    limit = prize.maxwinners
+                numToDraw = min(limit, prize.maxwinners -
+                                prize.current_win_count())
+                drawingError = False
+                while not drawingError and numDrawn < numToDraw:
+                    drawn, msg = prizeutil.draw_prize(prize)
+                    if not drawn:
+                        self.message_user(request, msg['error'], level=messages.ERROR)
+                        drawingError = True
+                    else:
+                        numDrawn += 1
         if numDrawn > 0:
             self.message_user(request, "%d prizes drawn." % numDrawn)
 
@@ -883,6 +906,13 @@ class PrizeAdmin(CustomModelAdmin):
     def draw_prize_action(self, request, queryset):
         self.draw_prize_internal(request, queryset, None)
     draw_prize_action.short_description = "Draw (all) winner(s) for the selected prizes"
+
+    def import_keys_action(self, request, queryset):
+        if queryset.count() != 1 or not queryset[0].key_code:
+            self.message_user(request, 'Select exactly one prize that uses keys.', level=messages.ERROR)
+        else:
+            return HttpResponseRedirect(reverse('admin:tracker_prize_key_import', args=(queryset[0].id,)))
+    import_keys_action.short_description = "Import Prize Keys"
 
     def set_state_accepted(self, request, queryset):
         mass_assign_action(self, request, queryset, 'state', 'ACCEPTED')
@@ -895,7 +925,7 @@ class PrizeAdmin(CustomModelAdmin):
     def set_state_denied(self, request, queryset):
         mass_assign_action(self, request, queryset, 'state', 'DENIED')
     set_state_denied.short_description = "Set state to Denied"
-    actions = [draw_prize_action, draw_prize_once_action,
+    actions = [draw_prize_action, draw_prize_once_action, import_keys_action,
                set_state_accepted, set_state_pending, set_state_denied]
 
     def get_queryset(self, request):
@@ -907,6 +937,57 @@ class PrizeAdmin(CustomModelAdmin):
             params['event'] = event.id
         return filters.run_model_query('prize', params, user=request.user, mode='admin')
 
+    def get_readonly_fields(self, request, obj=None):
+        ret = list(self.readonly_fields)
+        if obj and obj.key_code:
+            ret.append('maxwinners')
+            ret.append('maxmultiwin')
+        return ret
+
+
+class PrizeKeyImportForm(djforms.Form):
+    keys = djforms.CharField(widget=djforms.Textarea)
+
+    def clean_keys(self):
+        keys = {k.strip() for k in self.cleaned_data['keys'].split('\n') if k.strip()}
+        if tracker.models.PrizeKey.objects.filter(key__in=keys).exists():
+            raise ValidationError('At least one key already exists.')
+        return keys
+
+
+@admin_auth(('tracker.change_prize', 'tracker.add_prize_key'))
+def prize_key_import(request, prize):
+    try:
+        prize = tracker.models.Prize.objects.get(pk=prize)
+    except tracker.models.Prize.DoesNotExist:
+        raise Http404
+    if not prize.key_code:
+        messages.error(request, u'Cannot import prize keys to non key prizes.')
+        return HttpResponseRedirect(reverse('admin:tracker_prize_changelist'))
+    if prize.event.locked and not request.user.has_perm('tracker.can_edit_locked_events'):
+        raise PermissionDenied
+    form = PrizeKeyImportForm(data=request.POST if request.method == 'POST' else None)
+    if form.is_valid():
+        tracker.models.PrizeKey.objects.bulk_create([
+            tracker.models.PrizeKey(prize=prize, key=key) for key in form.cleaned_data['keys']
+        ])
+        prize.save()
+        count = len(form.cleaned_data['keys'])
+        logutil.change(request, prize, 'Added %d key(s).' % count)
+        messages.info(request, u'%d key(s) added to prize.' % count)
+        return HttpResponseRedirect(reverse('admin:tracker_prize_changelist'))
+    return render(request, 'admin/generic_form.html',
+                  {
+                      'title': u'Import keys for %s' % prize,
+                      'breadcrumbs':
+                          ((reverse('admin:app_list', kwargs=dict(app_label='tracker')), 'Tracker'),
+                           (reverse('admin:tracker_prize_changelist'), 'Prizes'),
+                           (reverse('admin:tracker_prize_change', args=(prize.id,)), prize),
+                           (None, 'Import Keys'),
+                           ),
+                      'form': form,
+                      'action': request.path,
+                  })
 
 class PrizeTicketForm(djforms.ModelForm):
     prize = make_ajax_field(tracker.models.PrizeTicket, 'prize', 'prize')
@@ -930,6 +1011,10 @@ class PrizeTicketAdmin(CustomModelAdmin):
         if event:
             params['event'] = event.id
         return filters.run_model_query('prizeticket', params, user=request.user, mode='admin')
+
+
+class PrizeKeyAdmin(CustomModelAdmin):
+    readonly_fields = ('prize', 'prize_winner', 'key')  # don't allow editing of anything by default
 
 
 class RunnerAdminForm(djforms.ModelForm):
@@ -977,7 +1062,9 @@ def start_run_view(request, run):
             form.cleaned_data['run_time'])
         endtime = prev.starttime + timedelta(milliseconds=rt)
         if form.cleaned_data['start_time'] < endtime:
-            return HttpResponse('Nope', status=400)
+            return HttpResponse(
+                'Entered data would cause previous run to end after current run started',
+                status=400, content_type='text/plain')
         prev.run_time = form.cleaned_data['run_time']
         prev.setup_time = str(form.cleaned_data['start_time'] - endtime)
         prev.save()
@@ -1006,8 +1093,8 @@ class SpeedRunAdmin(CustomModelAdmin):
     fieldsets = [
         (None,
          {'fields':
-          ('name', 'display_name', 'category', 'console', 'release_year', 'description', 'event', 'order', 'starttime',
-           'run_time', 'setup_time', 'deprecated_runners', 'runners', 'coop', 'tech_notes',)
+          ('name', 'display_name', 'twitch_name', 'category', 'console', 'release_year', 'description', 'event',
+           'order', 'starttime', 'run_time', 'setup_time', 'deprecated_runners', 'runners', 'coop', 'tech_notes',)
           }),
     ]
     readonly_fields = ('deprecated_runners', 'starttime')
@@ -1165,8 +1252,9 @@ def show_completed_bids(request):
 
 @admin_auth(('tracker.change_donor', 'tracker.change_donation'))
 def process_donations(request):
-    currentEvent = viewutil.get_selected_event(request)
-    return render(request, 'admin/process_donations.html', {'user_can_approve': request.user.has_perm('tracker.send_to_reader'), currentEvent: currentEvent})
+    current_event = viewutil.get_selected_event(request)
+    user_can_approve = (current_event and current_event.use_one_step_screening) or request.user.has_perm('tracker.send_to_reader')
+    return render(request, 'admin/process_donations.html', {'user_can_approve': user_can_approve, 'current_event': current_event})
 
 
 @admin_auth(('tracker.change_donor', 'tracker.change_donation'))
@@ -1332,6 +1420,7 @@ admin.site.register(tracker.models.Submission)
 admin.site.register(tracker.models.Prize, PrizeAdmin)
 admin.site.register(tracker.models.PrizeTicket, PrizeTicketAdmin)
 admin.site.register(tracker.models.PrizeCategory)
+admin.site.register(tracker.models.PrizeKey, PrizeKeyAdmin)
 admin.site.register(tracker.models.PrizeWinner, PrizeWinnerAdmin)
 admin.site.register(tracker.models.DonorPrizeEntry, DonorPrizeEntryAdmin)
 admin.site.register(tracker.models.UserProfile)
@@ -1355,6 +1444,7 @@ def get_urls():
         url('automail_prize_contributors', automail_prize_contributors,
             name='automail_prize_contributors'),
         url('draw_prize_winners', draw_prize_winners, name='draw_prize_winners'),
+        url('prize_key_import/(?P<prize>\d+)', prize_key_import, name='tracker_prize_key_import'),
         url('automail_prize_winners', automail_prize_winners,
             name='automail_prize_winners'),
         url('automail_prize_accept_notifications', automail_prize_accept_notifications,
@@ -1379,3 +1469,4 @@ def get_urls():
 
 admin.site.get_urls = get_urls
 admin.site.index_template = 'admin/tracker_admin.html'
+admin.site.site_header = 'Donation Tracker'

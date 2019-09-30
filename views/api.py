@@ -66,19 +66,14 @@ defer = {
 
 
 def donor_privacy_filter(model, fields):
-    visibility = None
-    primary = None
     prefix = ''
     if model == 'donor':
         visibility = fields['visibility']
-        primary = True
     elif 'donor__visibility' in fields:
         visibility = fields['donor__visibility']
-        primary = False
         prefix = 'donor__'
     elif 'winner__visibility' in fields:
         visibility = fields['winner__visibility']
-        primary = False
         prefix = 'winner__'
     else:
         return
@@ -97,7 +92,6 @@ def donor_privacy_filter(model, fields):
 
 
 def donation_privacy_filter(model, fields):
-    primary = None
     if model == 'donation':
         primary = True
     elif 'donation__domainId' in fields:
@@ -115,7 +109,8 @@ def donation_privacy_filter(model, fields):
     if prefix + 'requestedemail' in fields:
         del fields[prefix + 'requestedemail']
     del fields[prefix + 'requestedvisibility']
-    del fields[prefix + 'requestedsolicitemail']
+    if prefix + 'requestedsolicitemail' in fields:
+        del fields[prefix + 'requestedsolicitemail']
     del fields[prefix + 'testdonation']
     del fields[prefix + 'domainId']
 
@@ -213,13 +208,14 @@ def search(request):
         if 'queries' in request.GET and request.user.has_perm('tracker.view_queries'):
             return HttpResponse(json.dumps(connection.queries, ensure_ascii=False, indent=1), content_type='application/json;charset=utf-8')
         return resp
-    except ValueError, e:
+    except ValueError as e:
         return HttpResponse(json.dumps({'error': 'Value Error, malformed search parameters'}, ensure_ascii=False), status=400, content_type='application/json;charset=utf-8')
-    except KeyError, e:
+    except KeyError as e:
+        print(e)
         return HttpResponse(json.dumps({'error': 'Key Error, malformed search parameters'}, ensure_ascii=False), status=400, content_type='application/json;charset=utf-8')
-    except FieldError, e:
+    except FieldError as e:
         return HttpResponse(json.dumps({'error': 'Field Error, malformed search parameters'}, ensure_ascii=False), status=400, content_type='application/json;charset=utf-8')
-    except ValidationError, e:
+    except ValidationError as e:
         d = {'error': u'Validation Error'}
         if hasattr(e, 'message_dict') and e.message_dict:
             d['fields'] = e.message_dict
@@ -358,14 +354,21 @@ def add(request):
                                ','.join(sorted(bad_fields)))
     newobj = Model()
     changed_fields = []
+    m2m_collections = []
     for k, v in addParams.items():
         if k in ('type', 'id'):
             continue
         new_value = parse_value(Model, k, v, request.user)
-        setattr(newobj, k, new_value)
+        if type(new_value) == list:  # accounts for m2m relationships
+            m2m_collections.append((k, new_value))
+            new_value = map(unicode, new_value)
+        else:
+            setattr(newobj, k, new_value)
         changed_fields.append('Set %s to "%s".' % (k, new_value))
     newobj.full_clean()
     models = newobj.save() or [newobj]
+    for k, v in m2m_collections:
+        setattr(newobj, k, v)
     logutil.addition(request, newobj)
     logutil.change(request, newobj, ' '.join(changed_fields))
     resp = HttpResponse(serializers.serialize(
@@ -546,6 +549,7 @@ def command(request):
     return resp
 
 
+@generic_api_view
 @never_cache
 def me(request):
     if request.user.is_anonymous() or not request.user.is_active:

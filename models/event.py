@@ -4,11 +4,14 @@ import re
 
 import post_office.models
 import pytz
+
 from django.contrib.auth.models import User
 from django.core import validators
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import signals
 from django.db.utils import OperationalError
+from django.dispatch import receiver
 from timezone_field import TimeZoneField
 
 import tracker.util as util
@@ -125,6 +128,8 @@ class Event(models.Model):
     objects = EventManager()
     short = models.CharField(max_length=64, unique=True)
     name = models.CharField(max_length=128)
+    use_one_step_screening = models.BooleanField(default=True, verbose_name='Use One-Step Screening',
+                                                 help_text='Turn this off if you use the "Head Donations" flow')
     receivername = models.CharField(
         max_length=128, blank=True, null=False, verbose_name='Receiver Name')
     targetamount = models.DecimalField(decimal_places=2, max_digits=20, validators=[positive, nonzero],
@@ -133,8 +138,12 @@ class Event(models.Model):
                                           verbose_name='Minimum Donation',
                                           help_text='Enforces a minimum donation amount on the donate page.',
                                           default=decimal.Decimal('1.00'))
-    usepaypalsandbox = models.BooleanField(
-        default=False, verbose_name='Use Paypal Sandbox')
+    auto_approve_threshold = models.DecimalField(
+        'Threshold amount to send to reader or ignore',
+        decimal_places=2, max_digits=20,
+        validators=[positive],
+        blank=True, null=True,
+        help_text='Leave blank to turn off auto-approval behavior. If set, anonymous, no-comment donations at or above this amount get sent to the reader. Below this amount, they are ignored.')
     paypalemail = models.EmailField(
         max_length=128, null=False, blank=False, verbose_name='Receiver Paypal')
     paypalcurrency = models.CharField(max_length=8, null=False, blank=False, default=_currencyChoices[0][0],
@@ -153,7 +162,9 @@ class Event(models.Model):
     datetime = models.DateTimeField()
     timezone = TimeZoneField(default='US/Eastern')
     locked = models.BooleanField(default=False,
-                                 help_text='Requires special permission to edit this event or anything associated with it')
+                                 help_text='Requires special permission to edit this event or anything associated with it.')
+    allow_donations = models.BooleanField(default=True,
+                                          help_text='Whether or not donations are open for this event. A locked event will override this setting.')
     # Fields related to prize management
     prizecoordinator = models.ForeignKey(User, default=None, null=True, blank=True, verbose_name='Prize Coordinator',
                                          help_text='The person responsible for managing prize acceptance/distribution')
@@ -194,6 +205,13 @@ class Event(models.Model):
             if self.datetime.tzinfo is None or self.datetime.tzinfo.utcoffset(self.datetime) is None:
                 self.datetime = self.timezone.localize(self.datetime)
         super(Event, self).save(*args, **kwargs)
+
+        # When an event's datetime moves later than the starttime of the first
+        # run, we need to trigger a save on the run to update all runs' times
+        # properly to begin after the event starts.
+        first_run = self.speedrun_set.all().first()
+        if first_run and first_run.starttime and first_run.starttime != self.datetime:
+            first_run.save(fix_time=True)
 
     def clean(self):
         if self.id and self.id < 1:
@@ -261,6 +279,8 @@ class SpeedRun(models.Model):
     name = models.CharField(max_length=64)
     display_name = models.TextField(max_length=256, blank=True, verbose_name='Display Name',
                                     help_text='How to display this game on the stream.')
+    twitch_name = models.TextField(max_length=256, blank=True, verbose_name='Twitch Name',
+                                   help_text='What game name to use on Twitch')
     # This field is now deprecated, we should eventually set up a way to migrate the old set-up to use the donor links
     deprecated_runners = models.CharField(max_length=1024, blank=True, verbose_name='*DEPRECATED* Runners',
                                           editable=False, validators=[runners_exists])
@@ -329,15 +349,7 @@ class SpeedRun(models.Model):
                     self.run_time) + i(self.setup_time))
 
         if fix_runners and self.id:
-            if not self.runners.exists():
-                try:
-                    self.runners.add(*[Runner.objects.get_by_natural_key(r) for r in
-                                       util.natural_list_parse(self.deprecated_runners, symbol_only=True)])
-                except Runner.DoesNotExist:
-                    pass
-            if self.runners.exists():
-                self.deprecated_runners = u', '.join(
-                    unicode(r) for r in self.runners.all())
+            self.deprecated_runners = u', '.join(sorted(unicode(r) for r in self.runners.all()))
 
         super(SpeedRun, self).save(*args, **kwargs)
 
@@ -397,6 +409,13 @@ class Runner(models.Model):
 
     def __unicode__(self):
         return self.name
+
+
+# XXX: this signal handler will run for both SpeedRuns and Runners
+@receiver(signals.m2m_changed, sender=SpeedRun.runners.through)
+def runners_changed(sender, instance, action, **kwargs):
+    if action[:4] == 'post':
+        instance.save(fix_time=False, fix_runners=True)
 
 
 class Submission(models.Model):
