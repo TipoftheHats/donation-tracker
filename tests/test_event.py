@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.test import TestCase
 
-from . import TestMigrations
+from . import MigrationsTestCase
 from .. import models
 
 noon = datetime.time(12, 0)
@@ -13,6 +13,28 @@ tomorrow = today + datetime.timedelta(days=1)
 tomorrow_noon = datetime.datetime.combine(tomorrow, noon)
 long_ago = today - datetime.timedelta(days=180)
 long_ago_noon = datetime.datetime.combine(long_ago, noon)
+
+
+class TestEvent(TestCase):
+    def setUp(self):
+        self.event = models.Event.objects.create(targetamount=1,
+                                                 datetime=today_noon)
+        self.run = models.SpeedRun.objects.create(event=self.event,
+                                                  starttime=today_noon,
+                                                  order=0,
+                                                  run_time='00:01:00',
+                                                  setup_time='00:01:00')
+
+    def test_update_first_run_if_event_time_changes(self):
+        self.event.datetime=tomorrow_noon
+        self.event.save()
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.starttime, self.event.datetime)
+
+        self.event.datetime=long_ago_noon
+        self.event.save()
+        self.run.refresh_from_db()
+        self.assertEqual(self.run.starttime, self.event.datetime)
 
 
 class TestEventAdmin(TestCase):
@@ -68,7 +90,7 @@ class TestEventAdmin(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class TestEventMigrations(TestMigrations):
+class TestEventMigrations(MigrationsTestCase):
     migrate_from = '0002_add_event_datetime'
     migrate_to = '0003_backfill_event_datetime'
 

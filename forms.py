@@ -165,10 +165,16 @@ class DonationBidForm(forms.Form):
         if self.cleaned_data['bid'] and not self.cleaned_data['amount']:
             raise forms.ValidationError(_("Error, did not specify an amount"))
         if self.cleaned_data['bid']:
-            if self.cleaned_data['bid'].allowuseroptions:
-                if not self.cleaned_data['customoptionname']:
+            bid = self.cleaned_data['bid']
+            if bid.allowuseroptions:
+                customoptionname = self.cleaned_data['customoptionname']
+                if not customoptionname:
                     raise forms.ValidationError(
                         _('Error, did not specify a name for the custom option.'))
+                elif bid.option_max_length and len(customoptionname) > bid.option_max_length:
+                    raise forms.ValidationError({
+                        'bid': _('Error, your suggestion was too long, must be {0} characters or less.'.format(bid.option_max_length)),
+                    })
                 elif self.cleaned_data['amount'] < Decimal('1.00'):
                     raise forms.ValidationError(
                         _('Error, you must bid at least one dollar for a custom bid.'))
@@ -356,10 +362,6 @@ class PrizeSubmissionForm(forms.Form):
                                   help_text="Briefly describe your prize, as you would like it to appear to the public. All descriptions are subject to editing at our discretion.")
     maxwinners = forms.IntegerField(required=True, initial=1, widget=tracker.widgets.NumberInput({'min': 1, 'max': 10}), label="Number of Copies",
                                     help_text="If you are submitting multiple copies of the same prize (e.g. multiple copies of the same print), specify how many. Otherwise, leave this at 1.")
-    startrun = forms.fields.IntegerField(label="Suggested Start Game", required=False, widget=tracker.widgets.MegaFilterWidget(model="run"),
-                                         help_text="If you feel your prize would fit with a specific game (or group of games), enter them here. Please specify the games in the order that they will appear in the marathon.")
-    endrun = forms.fields.IntegerField(label="Suggested End Game", required=False, widget=tracker.widgets.MegaFilterWidget(model="run"),
-                                       help_text="Leaving only one or the other field blank will simply set the prize to only cover the one game")
     extrainfo = forms.CharField(max_length=1024, required=False, label="Extra/Non-Public Information", widget=forms.Textarea,
                                 help_text="Enter any additional information you feel the staff should know about your prize. This information will not be made public. ")
     estimatedvalue = forms.DecimalField(decimal_places=2, max_digits=20, required=True, label='Estimated Value', validators=[positive, nonzero],
@@ -375,7 +377,7 @@ class PrizeSubmissionForm(forms.Form):
     agreement = forms.BooleanField(label="Agreement", help_text=mark_safe("""Check if you agree to the following: 
   <ul>
     <li>I am expected to ship the prize myself, and will keep a receipt to be reimbursed for the cost of shipping.</li>
-    <li>I currently have the prize in my possesion, or can guarantee that I can obtain it within one week of the start of the marathon.</li>
+    <li>I currently have the prize in my possession, or can guarantee that I can obtain it within one week of the start of the marathon.</li>
     <li>I agree to communicate with the staff in a timely manner as neccessary regarding this prize.</li>
     <li>I agree that all contact information is correct has been provided with the consent of the respective parties.</li>
     <li>I agree that if the prize is no longer available, I will contact the staff immediately to withdraw it, and no later than one month of the start date of the marathon.</li>
@@ -388,12 +390,6 @@ class PrizeSubmissionForm(forms.Form):
             return models.SpeedRun.objects.get(id=data)
         except:
             raise forms.ValidationError("Invalid Run id.")
-
-    def clean_startrun(self):
-        return self.impl_clean_run(self.cleaned_data['startrun'])
-
-    def clean_endrun(self):
-        return self.impl_clean_run(self.cleaned_data['endrun'])
 
     def clean_name(self):
         basename = self.cleaned_data['name']
@@ -417,17 +413,6 @@ class PrizeSubmissionForm(forms.Form):
         return value
 
     def clean(self):
-        if not self.cleaned_data['startrun']:
-            self.cleaned_data['startrun'] = self.cleaned_data.get(
-                'endrun', None)
-        if not self.cleaned_data['endrun']:
-            self.cleaned_data['endrun'] = self.cleaned_data.get(
-                'startrun', None)
-        if self.cleaned_data['startrun'] and self.cleaned_data['startrun'].starttime > self.cleaned_data['endrun'].starttime:
-            self.errors['startrun'] = "Start run must be before the end run"
-            self.errors['endrun'] = "Start run must be before the end run"
-            raise forms.ValidationError(
-                "Error, Start run must be before the end run")
         return self.cleaned_data
 
     def save(self, event, handler=None):
@@ -449,8 +434,7 @@ class PrizeSubmissionForm(forms.Form):
             creator=self.cleaned_data['creatorname'],
             creatoremail=self.cleaned_data['creatoremail'],
             creatorwebsite=self.cleaned_data['creatorwebsite'],
-            startrun=self.cleaned_data['startrun'],
-            endrun=self.cleaned_data['endrun'])
+        )
         prize.save()
         return prize
 
@@ -512,7 +496,7 @@ class AutomailPrizeWinnersForm(forms.Form):
         self.fields['replyaddress'] = forms.EmailField(
             max_length=256, required=False, label='Reply Address', help_text="If left blank this will be the same as the from address")
         self.fields['emailtemplate'] = forms.ModelChoiceField(queryset=post_office.models.EmailTemplate.objects.all(
-        ), initial=None, empty_label="Pick a template...", required=True, label='Email Template', help_text="Select an email template to use.")
+        ), initial=event.prizewinneremailtemplate, empty_label="Pick a template...", required=True, label='Email Template', help_text="Select an email template to use. Can be overridden by the prize itself.")
         self.fields['acceptdeadline'] = forms.DateTimeField(
             initial=timezone.now() + datetime.timedelta(weeks=2))
 
@@ -528,10 +512,8 @@ class AutomailPrizeWinnersForm(forms.Form):
 
     def clean(self):
         if not self.cleaned_data['replyaddress']:
-            self.cleaned_data[
-                'replyaddress'] = self.cleaned_data['fromaddress']
-        self.cleaned_data['prizewinners'] = list(map(
-            lambda x: models.PrizeWinner.objects.get(id=x), self.cleaned_data['prizewinners']))
+            self.cleaned_data['replyaddress'] = self.cleaned_data['fromaddress']
+        self.cleaned_data['prizewinners'] = [models.PrizeWinner.objects.get(id=pw) for pw in self.cleaned_data['prizewinners']]
         return self.cleaned_data
 
 

@@ -23,6 +23,8 @@ DATABASES = {
     },
 }
 
+PAYPAL_TEST = True
+
 TIME_ZONE = 'America/New_York'
 
 # set this to your site's prefix, This allows handling multiple deployments from a common url base

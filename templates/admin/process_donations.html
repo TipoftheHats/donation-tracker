@@ -57,8 +57,6 @@ thead th {
 
 </style>
 
-<link href="{% static "css/ajax_select.css" %}" type="text/css" media="ajax" rel="stylesheet" />
-<script src="{% static "js/ajax_select.js" %}"></script>
 <link href="{% static "adminprocessing.css" %}" type="text/css" media="ajax" rel="stylesheet" />
 <script src="{% static "adminprocessing.js" %}"></script>
 
@@ -113,16 +111,23 @@ function addRow(donation) {
   var row = $("<tr>");
   var id = parseInt(donation['pk']);
   var priorityId = '#priority-'+id;
+
+  var prioText = {% if user_can_approve %}"Priority"{% else %}"Send to Head"{% endif %}
+  var sendText = {% if user_can_approve %}"Send to Reader"{% else %}"Send to Head"{% endif %};
+  var sentText = {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %};
+  var readState = {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %};
+
   row.append($("<td class='donor-column'>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
   row.append($("<td class='amount-column'>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
   row.append($("<td class='donation-comment'>").append(safeHtml(donation['fields']['comment'])));
   row.append($("<td class='mod-comment'>").append("<textarea id='textarea-" + id + "'>" + safeHtml(donation['fields']['modcomment'])).append("<button class='btn-success btn-sm' id='mod-button-" + id + "' > Save"));
   row.append($("<td class='button-column'>")
-    .append(makeEditButton(row, donation, {% if user_can_approve %}"Send to Reader"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'False'}))
-    .append(makeEditButton(row, donation, {% if user_can_approve %}"Priority"{% else %}"Send to Head"{% endif %}, {% if user_can_approve %}"Sent to Reader"{% else %}"Sent to Head"{% endif %}, { readstate: {% if user_can_approve %}"READY"{% else %}"FLAGGED"{% endif %}, commentstate: "APPROVED", prioritystate: 'True'}))
+    .append(makeEditButton(row, donation, sendText, sentText, { readstate: readState, commentstate: "APPROVED", prioritystate: 'False'}))
+    .append(makeEditButton(row, donation, prioText, sentText, { readstate: readState, commentstate: "APPROVED", prioritystate: 'True'}))
     .append(makeEditButton(row, donation, "Approve Only", "Comment Approved", { readstate: "IGNORED", commentstate: "APPROVED", prioritystate: 'False' }))
     .append(makeEditButton(row, donation, "Block Comment", "Blocked comment", { readstate: "IGNORED", commentstate: "DENIED", prioritystate: 'False' }))
   );
+
   row.append($('<td class="statuscell">'));
   resultsTable.append(row);
   //$("button").addClass("btn")
@@ -155,8 +160,8 @@ function runSearch() {
 
   };
 
-  {% if user_can_approve %}
-    if( $("#id_process_mode").val() == 'confirm' ) {
+  {% if user_can_approve and not current_event.use_one_step_screening %}
+    if( $("#id_process_mode").val() === 'confirm' ) {
       searchParams['readstate'] = 'FLAGGED';
     } else {
       searchParams['feed'] = "toprocess";
@@ -165,8 +170,8 @@ function runSearch() {
     searchParams['feed'] = "toprocess";
   {% endif %}
 
-  {% if currentEvent %}
-  searchParams.event = {{ currentEvent.id }};
+  {% if current_event %}
+  searchParams.event = {{ current_event.id }};
   {% endif %}
 
   disableElements($("#id_result_set").get(0));
@@ -233,7 +238,7 @@ function runSearch() {
   <option value="un">Unknown</option>
 </select>
 
-{% if user_can_approve %}
+{% if not current_event.use_one_step_screening and user_can_approve %}
 <label>Processing Mode</label>
 <select id="id_process_mode">
   <option value="normal">Regular</option>

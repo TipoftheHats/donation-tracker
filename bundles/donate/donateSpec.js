@@ -89,6 +89,20 @@ describe('#Donate', () => {
       expectSubmitDisabled('Donation amount below minimum.');
     });
 
+    it('does not allow submit if a suggestion is too long', () => {
+      subject = render();
+      const node = ReactDOM.findDOMNode(subject);
+      TestUtils.Simulate.change(node.querySelector('input[name=amount]'), {target: {value: 15}});
+      TestUtils.Simulate.click(node.querySelector('#show_incentives'));
+      expectIncentivesVisible();
+      TestUtils.Simulate.click(node.querySelectorAll('[data-aid=incentives] [data-aid=result]')[1]);
+      TestUtils.Simulate.change(node.querySelectorAll('[data-aid=incentives] input[type=checkbox]')[0], {target: {checked: true}});
+      TestUtils.Simulate.change(node.querySelector('[data-aid=incentives] input[name=newOptionValue]'), {target: {value: 'Turquoise'}});
+      TestUtils.Simulate.change(node.querySelector('input[name=new_amount]'), {target: {value: 15}});
+      TestUtils.Simulate.click(node.querySelector('#add'));
+      expectSubmitDisabled('Suggestion is too long.');
+    });
+
     it('does not allow submit if not all money is allocated', () => {
       subject = render();
       TestUtils.Simulate.change(ReactDOM.findDOMNode(subject).querySelector('input[name=amount]'), {target: {value: 5}});
@@ -159,7 +173,7 @@ describe('#Donate', () => {
           amount: '5.00',
         },
       });
-      expectSubmitDisabled('At least one incentive is no longer valid.');
+      expectSubmitDisabled('Total donation amount not allocated.');
     });
   });
 
@@ -277,6 +291,51 @@ describe('#Donate', () => {
           ['requestedvisibility', 'ANON'],
       ]);
     });
+
+    it('incentive with one expired incentive', () => {
+      subject = render({
+        initialIncentives: [{
+          bid: null,
+          amount: '5.00',
+          customoptionname: '',
+        }],
+        formErrors: {
+          bidsform: [
+            {bid: 'Bid does not exist or is closed.'},
+          ],
+          commentform: {}
+        },
+        initialForm: {
+          amount: '5.00',
+        },
+      });
+      const node = ReactDOM.findDOMNode(subject);
+      expectIncentivesVisible();
+      TestUtils.Simulate.click(node.querySelectorAll('[data-aid=incentives] [data-aid=result]')[0]);
+      TestUtils.Simulate.change(node.querySelector('input[name=new_amount]'), {target: {value: 5}});
+      TestUtils.Simulate.click(node.querySelector('#add'));
+      TestUtils.Simulate.submit(node);
+      expect([...formData.entries()].sort((a, b) => a[0].localeCompare(b[0]))).toEqual([
+          ['amount', '5.00'],
+          ['bidsform-0-amount', '5'],
+          ['bidsform-0-bid', '1'],
+          ['bidsform-0-customoptionname', ''],
+          ['bidsform-INITIAL_FORMS', '0'],
+          ['bidsform-MAX_NUM_FORMS', '10'],
+          ['bidsform-MIN_NUM_FORMS', '0'],
+          ['bidsform-TOTAL_FORMS', '1'],
+          ['comment', ''],
+          ['csrfmiddlewaretoken', 'deadbeef'],
+          ['prizeForm-INITIAL_FORMS', '0'],
+          ['prizeForm-MAX_NUM_FORMS', '10'],
+          ['prizeForm-MIN_NUM_FORMS', '0'],
+          ['prizeForm-TOTAL_FORMS', '1'],
+          ['requestedalias', ''],
+          ['requestedemail', ''],
+          ['requestedsolicitemail', 'CURR'],
+          ['requestedvisibility', 'ANON'],
+      ]);
+    });
   });
 
   function expectIncentivesVisible() {
@@ -292,7 +351,11 @@ describe('#Donate', () => {
       expect(finish.disabled).toBe(true, 'finish was not disabled');
     }
     if (message) {
-      expect(ReactDOM.findDOMNode(subject).querySelector('.error').innerText).toContain(message);
+      const error = ReactDOM.findDOMNode(subject).querySelector('.error');
+      expect(error).not.toBeNull('No error was present.');
+      if (error) {
+        expect(error.innerText).toContain(message);
+      }
     }
   }
 
@@ -314,6 +377,7 @@ describe('#Donate', () => {
           amount: '0.00',
           count: 0,
           custom: true,
+          maxlength: 8,
           description: 'Which color?',
           name: 'Paint Color',
           runname: 'Test Run',
