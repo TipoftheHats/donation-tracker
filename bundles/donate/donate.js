@@ -288,6 +288,10 @@ class Donate extends React.PureComponent {
     minimumDonation: PropTypes.number.isRequired,
     maximumDonation: PropTypes.number.isRequired,
     donateUrl: PropTypes.string.isRequired,
+    steamID: PropTypes.string,
+    totalDonated: PropTypes.string,
+    steamLogin: PropTypes.string,
+    steamDisconnect: PropTypes.string,
     prizes: PropTypes.arrayOf(PropTypes.shape({
       id: PropTypes.number.isRequired,
       description: PropTypes.string,
@@ -302,7 +306,7 @@ class Donate extends React.PureComponent {
 
   static defaultProps = {
     step: 0.01,
-    minimumDonation: 5,
+    minimumDonation: 1,
     maximumDonation: 10000,
     initialIncentives: [],
   };
@@ -312,6 +316,8 @@ class Donate extends React.PureComponent {
     currentIncentives: this.props.initialIncentives || [],
     requestedalias: this.props.initialForm.requestedalias || '',
     requestedemail: this.props.initialForm.requestedemail || '',
+    steamID: this.props.steamID || 'None',
+    totalDonated: this.props.totalDonated || '0',
     requestedsolicitemail: this.props.initialForm.requestedsolicitemail || 'CURR',
     comment: this.props.initialForm.comment || '',
     amount: this.props.initialForm.amount || '',
@@ -367,6 +373,12 @@ class Donate extends React.PureComponent {
     return this.state.currentIncentives.reduce((sum, ci) => ci.bid ? sum + (+ci.amount) : 0, 0);
   }
 
+  // getTotal fixes floating point numbers appearing
+  getTotal(amount) {
+    var total = (amount || 0) - this.sumIncentives_();
+    return Math.round(total * 1e2) / 1e2;
+  }
+
   finishDisabled_() {
     const {
       amount,
@@ -415,6 +427,8 @@ class Donate extends React.PureComponent {
       currentIncentives,
       requestedalias,
       requestedemail,
+      steamID,
+      totalDonated,
       requestedsolicitemail,
       comment,
       amount,
@@ -431,6 +445,8 @@ class Donate extends React.PureComponent {
       formErrors,
       prizes,
       donateUrl,
+      steamLogin,
+      steamDisconnect,
       incentives,
       csrfToken,
       onSubmit,
@@ -456,7 +472,7 @@ class Donate extends React.PureComponent {
                    type='email' name='requestedemail' value={requestedemail} maxLength='128'
                    onChange={this.setValue('requestedemail')}/>
             <div>(Click <a className={cn('block-external', styles['privacy'])}
-                           href='https://gamesdonequick.com/privacy/' target='_blank'
+                           href='https://tipofthehats.org/privacy' target='_blank'
                            rel='noopener noreferrer'>here</a> for our privacy policy)
             </div>
           </div>
@@ -536,10 +552,43 @@ class Donate extends React.PureComponent {
               are screened and will be removed from the website if deemed unacceptable.</label>
           </div>
         </div>
+
+        <div className={styles['steamAuth']}>
+          <div className={styles['cubano']}>Steam Auth</div>
+            {steamID != "None" &&
+            <div>
+              <p>Steam ID: {steamID}</p>
+              <p>Total donated by this steamid during the event: ${totalDonated}</p>
+              <p><a id="disconnect" href={steamDisconnect}>Disconnect Steam account</a></p>
+            </div>
+            }
+            {steamID == "None" &&
+            <div>
+              <p>You will need to connect your steam account to receive in game items</p>
+              <p><a href={steamLogin} >Connect to Steam </a></p>
+              <p> <sub>(Note: Connecting your steam account will require you to fill out this form again)</sub></p>
+            </div>
+          }
+          <div className={styles['cubano']}> Earn in-game TF2 medals for donating! </div>
+          <div>
+            (You must connect your Steam account in order for your donations to count towards a medal. Donations made on our <a href="https://scrap.tf/toth">ScrapTF fundraiser</a> also count towards a medal.
+            We will add your ScrapTF item donation total to your cash donation total before determining which medal to award. Medals will be awarded a few weeks after the event has concluded.)
+          </div>
+          <div className={styles['medals']}>
+            <img className={styles['medal']} src={STATIC_URL + "images/toth2019_t1_large.png"} alt="Tier 1: Bronze TF2 Medal"></img>
+            <img className={styles['medal']} src={STATIC_URL + "images/toth2019_t2_large.png"} alt="Tier 2: Silver TF2 Medal"></img>
+            <img className={styles['medal']} src={STATIC_URL + "images/toth2019_t3_large.png"} alt="Tier 3: Gold TF2 Medal"></img>
+          </div>
+          <div>$10 - Jaunty Tipper</div>
+          <div>$30 - Jaunty Benefactor</div>
+          <div>$100 - Jaunty Philanthropist</div>
+        </div>
+
         <div className={styles['incentivesCTA']}>
           <div className={styles['cubano']}>DONATION INCENTIVES</div>
-          <div>Donation incentives can be used to add bonus runs to the schedule or influence choices by runners. Do
-            you wish to put your donation towards an incentive?
+          <div>
+            Donation incentives can be used to add extra content to the schedule or influence the choices of the cast.
+            Do you wish to put your donation towards an incentive?
           </div>
           <div className={styles['incentivesButtons']}>
             <button
@@ -571,7 +620,7 @@ class Donate extends React.PureComponent {
               currentIncentives={currentIncentives}
               deleteIncentive={this.deleteIncentive_}
               addIncentive={this.addIncentive_}
-              total={(amount || 0) - this.sumIncentives_()}
+              total={this.getTotal(amount)}
             />
             <div className={styles['finishArea']}>
               <button

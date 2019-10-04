@@ -17,6 +17,11 @@
       -->
     </script>
     <link rel="stylesheet" type="text/css" href="{% static 'main.css' %}"/>
+    <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}ply.css" />
+    <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}styles.css" />
+
+    <script src="{{ STATIC_URL }}Ply.min.js"></script>
+
     <script type='text/javascript'>
       <!--
       document.addEventListener("DOMContentLoaded", function () {
@@ -52,4 +57,91 @@
         {% endfor %}
     </div>
     <div id="container"></div>
+    {% if not request.session.uid %}
+    <script>
+      (function () {
+        // Do not show the modals again if the user has already declined them.
+        if ($.cookie('declinedSteamConnect', Boolean)) {
+          return;
+        }
+        Ply.dialog({
+          askAccount: {
+            ui: 'confirm',
+            data: {
+              children: [{
+                tag: 'h3',
+                innerHTML: 'Thank you for donating to Tip of the Hats!',
+                css: {
+                  'margin-bottom': '1em',
+                  'margin-top': '-1em'
+                }
+              }, {
+                tag: 'p',
+                innerHTML: 'Do you have a Steam account?'
+              }],
+              ok: 'YES',
+              cancel: 'NO'
+            },
+            next: 'askConnect', // OK button
+            nextEffect: '3d-flip[180,-180]',
+            backEffect: 'scale'
+          },
+          askConnect: {
+            data: {
+              children: [{
+                tag: 'p',
+                css: {
+                  'font-size': '18px'
+                },
+                innerHTML: 'Do you want to link your Steam account to be eligible to receive in-game items for Team Fortress 2?'
+              }, {
+                tag: 'div',
+                css: {
+                  display: 'flex',
+                  'justify-content': 'center',
+                  'align-items': 'center',
+                  'text-align': 'center',
+                  'font-size': '13px'
+                },
+                innerHTML:
+                  '<a href="{{ STATIC_URL }}images/toth2019_t1_large.png" target="_blank">' +
+                          '<img width="150px" src="{{ STATIC_URL }}images/toth2019_t1_large.png">' +
+                  '</a>' +
+                  '<a href="{{ STATIC_URL }}images/toth2019_t2_large.png" target="_blank">' +
+                          '<img width="150px" src="{{ STATIC_URL }}images/toth2019_t2_large.png">' +
+                  '</a>' +
+                  '<a href="{{ STATIC_URL }}images/toth2019_t3_large.png" target="_blank">' +
+                          '<img width="150px" src="{{ STATIC_URL }}images/toth2019_t3_large.png">' +
+                  '</a>' +
+                  '<div style="margin-left: 1em;">' +
+                          'In-game medals will be awarded to qualifying donors!<br/>' +
+                          '$10 for Bronze<br/>' +
+                          '$30 for Silver<br/>' +
+                          '$100 for Gold<br/>' +
+                          '(cumulative amounts over entire event)<br/>' +
+                  '</div>'
+              }, {
+                tag: 'em',
+                innerHTML: 'Clicking "Yes" will take you to Steam\'s login page',
+                css: {
+                  'font-size': 'smaller'
+                }
+              }],
+              ok: 'YES',
+              cancel: 'NO'
+            }
+          }
+        }).always(function (ui) {
+          if (ui.state) {
+            // OK
+            window.location = "{% url 'tracker:social:begin' 'steam' %}?next={{ request.get_full_path }}";
+          } else {
+            // Cancel
+            // ui.by — 'overlay', 'x', 'esc'
+            $.cookie('declinedSteamConnect', true);
+          }
+        });
+      })();
+    </script>
+    {% endif %}
 {% endblock %}
