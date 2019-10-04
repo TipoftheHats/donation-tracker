@@ -452,3 +452,18 @@
 :local(.finishArea) {
   margin: 50px 0 50px 0;
 }
+:local(.steamAuth) {
+  text-align: center;
+  font-size: 16px;
+  margin-bottom: 60px;
+}
+
+:local(.steamAuth .cubano) {
+  font-size: 24px;
+}
+:local(.medals) {
+  font-size: 24px;
+}
+:local(.medals .medal) {
+  width:175px;
+}
