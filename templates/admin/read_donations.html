@@ -70,6 +70,7 @@ thead th {
 
 var partitionLanguageElem = "#partition_language";
 var languageCookieName = 'donation_processing_language';
+var sortOptionElem = "#search_sort";
 
 var trackerAPI = new TrackerAPI("{% settings_value "SITE_PREFIX" %}");
 
@@ -155,6 +156,7 @@ function runSearch() {
 
   searchParams = {
     feed : "toread",
+    sort: $(sortOptionElem).val()
   };
 
   {% if currentEvent %}
@@ -238,6 +240,11 @@ function runSearch() {
   <option value="un">Unknown</option>
 </select>
 </label>
+<label>Sort</label>
+<select id="search_sort">
+  <option value="desc">New->Old</option>
+  <option value="asc">Old->New</option>
+</select>
 <button onclick="runSearch();">Refresh</button>
 
 <span id="id_loading"></span>
