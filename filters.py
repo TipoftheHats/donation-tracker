@@ -613,6 +613,10 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
         elif feedName == 'toread':
             query = query.filter(Q(readstate='READY') &
                                  Q(transactionstate='COMPLETED'))
+                                 
+            if 'sort' in params:
+                toReadSort = 'id' if params['sort'] == 'asc' else '-id'
+                query = query.order_by(toReadSort)
     elif model in ['bid', 'bidtarget', 'allbids']:
         if feedName == 'open':
             query = query.filter(state='OPENED')
