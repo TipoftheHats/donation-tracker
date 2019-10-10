@@ -14,9 +14,6 @@ td {
 button {
   margin: 3px !important;
 }
-button#refresh.disabled {
-    opacity: 0.5;
-}
 thead th {
   background-color: #4E5D6C !important;
 }
@@ -140,16 +137,17 @@ function toggleAutoRefresh() {
   if(autoRefreshEnabled) 
   {
     $(autoRefreshToggleElem).text("Start Auto-Refresh");
+    $(refreshButtonElem).removeAttr("disabled");
     clearTimeout(autoRefresh);
   }
   else 
   {
     $(autoRefreshToggleElem).text("Stop Auto-Refresh");
+    $(refreshButtonElem).attr("disabled", "disabled");
     setTimeout(autoRefresh, AUTO_REFRESH_INTERVAL_MS);
   }
 
   autoRefreshEnabled = !autoRefreshEnabled;
-  $(refreshButtonElem).toggleClass("disabled");
   $(showNewDonationsElem).css("visibility", autoRefreshEnabled ? "visible" : "hidden").text("No New Donations");
 }
 
@@ -309,7 +307,7 @@ function autoRefresh() {
 }
 
 function manualRefresh() {
-  if($(refreshButtonElem).hasClass("disabled"))
+  if(autoRefreshEnabled)
     return;
 
   //Clear these because manual refreshes wipe and rebuild the whole table
@@ -352,7 +350,7 @@ function runSearch() {
         return donation["pk"] % partition[1] == (partition[0] - 1) && (language == 'all' || donation['fields']["commentlanguage"] == language);
       });
 
-      for (var i in donations) {
+      for (var i in donations) { 
         addRow(donations[i]);
       }
 
