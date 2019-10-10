@@ -89,6 +89,7 @@ var refreshButtonElem = "#refresh";
 var showNewDonationsElem = "#show_new_donations";
 var autoRefreshToggleElem = "#auto_refresh_toggle";
 var autoRefreshEnabled = false;
+var autoRefreshTimeoutHandle = null;
 
 //Stores donations that have been fetched from autorefresh, but have not been inserted into the DOM.
 var pendingDonations = [];
@@ -138,13 +139,13 @@ function toggleAutoRefresh() {
   {
     $(autoRefreshToggleElem).text("Start Auto-Refresh");
     $(refreshButtonElem).removeAttr("disabled");
-    clearTimeout(autoRefresh);
+    clearTimeout(autoRefreshTimeoutHandle);
   }
   else 
   {
     $(autoRefreshToggleElem).text("Stop Auto-Refresh");
     $(refreshButtonElem).attr("disabled", "disabled");
-    setTimeout(autoRefresh, AUTO_REFRESH_INTERVAL_MS);
+    autoRefreshTimeoutHandle = setTimeout(autoRefresh, AUTO_REFRESH_INTERVAL_MS);
   }
 
   autoRefreshEnabled = !autoRefreshEnabled;
