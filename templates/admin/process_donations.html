@@ -17,6 +17,14 @@ button {
 thead th {
   background-color: #4E5D6C !important;
 }
+#id_loading {
+  text-align: center;
+}
+
+#show_new_donations {
+  visibility: hidden;
+}
+
 #comment-filters {
   margin:auto;
   width:auto;
@@ -76,6 +84,23 @@ var partitionLanguageElem = "#partition_language";
 var partitionCookieName = 'donation_processing_partition';
 var languageCookieName = 'donation_processing_language';
 
+const AUTO_REFRESH_INTERVAL_MS = 1500;
+var refreshButtonElem = "#refresh";
+var showNewDonationsElem = "#show_new_donations";
+var autoRefreshToggleElem = "#auto_refresh_toggle";
+var autoRefreshEnabled = false;
+
+//Stores donations that have been fetched from autorefresh, but have not been inserted into the DOM.
+var pendingDonations = [];
+
+/*
+ * Used to store the IDs of donations we've already fetched, which we will use to
+ * determine if a donation has been handled by another person upon autorefresh 
+ * (because its ID will not be present in a search).
+ */
+var processedDonationIDs = []; 
+
+
 function getLanguageCookie() {
   var language = $.cookie(languageCookieName);
   if (typeof language !== 'undefined')
@@ -102,14 +127,51 @@ $(document).ready(function(){
 
   resultsTable = $("#id_result_set");
   setTimeout(runSearch, 0);
-
-
-
 });
 
-function addRow(donation) {
-  var row = $("<tr>");
+function setLoadingMessageDisplay(show) {
+  $("#id_loading").text(show ? "Loading..." : "");
+}
+
+function toggleAutoRefresh() {
+  if(autoRefreshEnabled) 
+  {
+    $(autoRefreshToggleElem).text("Start Auto-Refresh");
+    $(refreshButtonElem).removeAttr("disabled");
+    clearTimeout(autoRefresh);
+  }
+  else 
+  {
+    $(autoRefreshToggleElem).text("Stop Auto-Refresh");
+    $(refreshButtonElem).attr("disabled", "disabled");
+    setTimeout(autoRefresh, AUTO_REFRESH_INTERVAL_MS);
+  }
+
+  autoRefreshEnabled = !autoRefreshEnabled;
+  $(showNewDonationsElem).css("visibility", autoRefreshEnabled ? "visible" : "hidden").text("No New Donations");
+}
+
+function showNewDonations(){
+  if(pendingDonations.length == 0)
+    return;
+
+  pendingDonations.forEach((donation) => prependRow(donation));
+
+  pendingDonations = [];
+  $(showNewDonationsElem).text("No New Donations").removeClass("btn-success");
+}
+
+function disableRow(donationId){
+  var elem = $("#donation_" + donationId);
+  if(!elem)
+    return;
+
+  elem.find(".button-column").html("Handled by another processor.");
+}
+
+function makeRow(donation) {
   var id = parseInt(donation['pk']);
+  var row = $("<tr id='donation_" + id + "'>");
   var priorityId = '#priority-'+id;
 
   var prioText = {% if user_can_approve %}"Priority"{% else %}"Send to Head"{% endif %}
@@ -129,33 +191,41 @@ function addRow(donation) {
   );
 
   row.append($('<td class="statuscell">'));
-  resultsTable.append(row);
   //$("button").addClass("btn")
-$('button:contains("Approve Only")').addClass("btn btn-primary btn-sm");
-$('button:contains("Send to Reader")').addClass("btn btn-success btn-sm");
-$('button:contains("Priority")').addClass("btn btn-info btn-sm");
-$('button:contains("Block Comment")').addClass("btn btn-danger btn-sm");
+  row.find('button:contains("Approve Only")').addClass("btn btn-primary btn-sm");
+  row.find('button:contains("Send to Reader")').addClass("btn btn-success btn-sm");
+  row.find('button:contains("Priority")').addClass("btn btn-info btn-sm");
+  row.find('button:contains("Block Comment")').addClass("btn btn-danger btn-sm");
 
-$(".btn").click(function(){
-  $(this).closest("tr").fadeOut("slow");
-
- });
- $("#mod-button-" + id).click(function(e){
-   newModComment = $(this).closest('td').find('textarea').val();
-   console.log(newModComment);
-   trackerAPI.editObject("donation", id , { modcomment: newModComment }, function(status, responseText) {
-     if (status == 200) {
-       console.log('mod comment modified');
-       console.log(responseText)
-     } else {
-       console.log('error adding mod comment' + responseText);
-     }
-     });
+  row.find(".button-column .btn").click(function(){
+    $(this).closest("tr").fadeOut("slow");
   });
+
+  row.find("#mod-button-" + id).click(function(e){
+    newModComment = $(this).closest('td').find('textarea').val();
+    console.log(newModComment);
+    trackerAPI.editObject("donation", id , { modcomment: newModComment }, function(status, responseText) {
+      if (status == 200) {
+        console.log('mod comment modified');
+        console.log(responseText)
+      } else {
+        console.log('error adding mod comment' + responseText);
+      }
+      });
+    });
+
+  return row;
 }
 
-function runSearch() {
+function addRow(donation) {
+  resultsTable.append(makeRow(donation));
+}
 
+function prependRow(donation){
+  resultsTable.prepend(makeRow(donation));
+}
+
+function getSearchParams() {
   searchParams = {
 
   };
@@ -174,9 +244,85 @@ function runSearch() {
   searchParams.event = {{ current_event.id }};
   {% endif %}
 
+  return searchParams;
+}
+
+function autoRefresh() {
+  if(!autoRefreshEnabled)
+    return;
+
+  searchParams = getSearchParams();
+
+  setLoadingMessageDisplay(true);
+
+  //Not calling runSearch() because this is a rather different usage scenario for the data returned by searchObjects
+  //and I don't think an 'isAuto' param is the way to go there
+  trackerAPI.searchObjects("donation", searchParams, function(status, responseText) {
+    if(status != 200)
+      return;
+    
+    partition = partitioner.getPartition();
+
+    var donations = JSON.parse(responseText);
+    var language = $(partitionLanguageElem).val();
+
+    //Only factor in donations for the selected language and partition
+    donations = donations.filter((donation) => {
+      return donation["pk"] % partition[1] == (partition[0] - 1) && (language == 'all' || donation['fields']["commentlanguage"] == language);
+    });
+
+    //Compute the donations that are new in this refresh
+    newDonations = donations.filter((donation) => !processedDonationIDs.includes(donation['pk']));
+
+    //Compute the list of all donation IDs present in this refresh (new and old)
+    donationIDs = donations.map((donation) => donation['pk']);
+
+    //Compute the list of new donation IDs present in this refresh
+    newDonationIDs = newDonations.map((donation) => donation['pk']);
+
+    //Determine which donations have been removed (processed by someone else)
+    removedDonationIDs = processedDonationIDs.filter((id) => !donationIDs.includes(id));
+
+    //Remove pending donations if they've been handled by another processor
+    pendingDonations = pendingDonations.filter((donation) => !removedDonationIDs.includes(donation['pk']));
+
+    //For the removed donation IDs, indicate they've been handled already
+    removedDonationIDs.forEach((id) => disableRow(id));
+
+    //Yeet the donations into the queue
+    newDonations.forEach((donation) => {
+      processedDonationIDs.push(donation['pk']);
+      pendingDonations.push(donation);
+    });
+
+    var numPending = pendingDonations.length;
+    if(numPending > 0)
+      $(showNewDonationsElem).text(numPending + " New Donation" + (numPending !== 1 ? "s" : "")).removeClass("btn-success").addClass("btn-success");
+    else
+      $(showNewDonationsElem).text('No New Donations').removeClass("btn-success");
+
+    setLoadingMessageDisplay(false);
+    setTimeout(autoRefresh, AUTO_REFRESH_INTERVAL_MS);
+  });
+}
+
+function manualRefresh() {
+  if(autoRefreshEnabled)
+    return;
+
+  //Clear these because manual refreshes wipe and rebuild the whole table
+  processedDonationIDs = [];
+  pendingDonations = [];
+
+  runSearch();
+}
+
+function runSearch() {
+  searchParams = getSearchParams();
+
   disableElements($("#id_result_set").get(0));
 
-  $("#id_loading").html("Loading...");
+  setLoadingMessageDisplay(true);
 
   trackerAPI.searchObjects("donation", searchParams, function(status, responseText) {
     if (status == 200) {
@@ -198,18 +344,19 @@ function runSearch() {
         "<tbody");
 
       var donations = JSON.parse(responseText);
-
       var language = $(partitionLanguageElem).val();
 
-      for (var i in donations) {
-        if (donations[i]["pk"] % partition[1] == (partition[0] - 1) && (language == 'all' || donations[i]['fields']["commentlanguage"] == language))
-        {
-          addRow(donations[i]);
-        }
+      donations = donations.filter((donation) => {
+        return donation["pk"] % partition[1] == (partition[0] - 1) && (language == 'all' || donation['fields']["commentlanguage"] == language);
+      });
+
+      for (var i in donations) { 
+        addRow(donations[i]);
       }
 
-      $("#id_loading").html("");
+      processedDonationIDs = donations.map((donation) => donation['pk']);
 
+      setLoadingMessageDisplay(false);
     }
     else
     {
@@ -226,30 +373,41 @@ function runSearch() {
 
 {% block content %}
 <div id="comment-filters">
+  <label>Partition ID:</label> <input type="number" id="partition_id" min="0" max="0" value="0">
+  <label>Partition Count:</label> <input type="number" id="partition_count" min="1" value="1">
+  <label>Language</label>
+  <select id="partition_language">
+    <option value="all">All</option>
+    <option value="en">English</option>
+    <option value="fr">French</option>
+    <option value="de">German</option>
+    <option value="un">Unknown</option>
+  </select>
 
-<label>Partition ID:</label> <input type="number" id="partition_id" min="0" max="0" value="0">
-<label>Partition Count:</label> <input type="number" id="partition_count" min="1" value="1">
-<label>Language</label>
-<select id="partition_language">
-  <option value="all">All</option>
-  <option value="en">English</option>
-  <option value="fr">French</option>
-  <option value="de">German</option>
-  <option value="un">Unknown</option>
-</select>
+  {% if not current_event.use_one_step_screening and user_can_approve %}
+  <label>Processing Mode</label>
+  <select id="id_process_mode">
+    <option value="normal">Regular</option>
+    <option value="confirm">Confirmation</option>
+  </select>
+  {% endif %}
 
-{% if not current_event.use_one_step_screening and user_can_approve %}
-<label>Processing Mode</label>
-<select id="id_process_mode">
-  <option value="normal">Regular</option>
-  <option value="confirm">Confirmation</option>
-</select>
-{% endif %}
-
-<button onclick="runSearch();">Refresh</button>
+  <button id="refresh" onclick="runSearch();">Refresh</button>
+  <button id="auto_refresh_toggle" onclick="toggleAutoRefresh();">Start Auto-Refresh</button>
 </div>
 
-<span id="id_loading"></span>
+<div id="refresh_info_row" class="row">
+  <div class="col-xs-4 col-sm-4"></div>
+  <div class="col-xs-4 col-sm-4">
+    <div id="id_loading"></div>
+  </div>
+  <div class="col-xs-4 col-sm-4">
+    <button id="show_new_donations" class="btn btn-sm" onclick="showNewDonations();">
+      No New Donations
+    </button>
+  </div>
+</div>
+<div id="id_loading"></div>
 
 <div class="table-responsive">
 
