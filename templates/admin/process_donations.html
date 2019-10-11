@@ -25,6 +25,11 @@ thead th {
   visibility: hidden;
 }
 
+.donation-row.externally-processed {
+  opacity: 0.5;
+  background-color: #95a5a647;
+}
+
 #comment-filters {
   margin:auto;
   width:auto;
@@ -152,27 +157,44 @@ function toggleAutoRefresh() {
   $(showNewDonationsElem).css("visibility", autoRefreshEnabled ? "visible" : "hidden").text("No New Donations");
 }
 
-function showNewDonations(){
+function showNewDonations() {
+  clearDisabledRows();
+  $(showNewDonationsElem).text("No New Donations").removeClass("btn-success");
+
   if(pendingDonations.length == 0)
     return;
 
   pendingDonations.forEach((donation) => prependRow(donation));
 
   pendingDonations = [];
-  $(showNewDonationsElem).text("No New Donations").removeClass("btn-success");
 }
 
-function disableRow(donationId){
+function anyUnprocessedDonationsInDOM() {
+  return $("tr.donation-row:not(.externally-processed)").length > 0;
+}
+
+function disableRow(donationId) {
   var elem = $("#donation_" + donationId);
-  if(!elem)
+  if(!elem || elem.hasClass("externally-processed"))
     return;
 
   elem.find(".button-column").html("Handled by another processor.");
+  elem.addClass("externally-processed");
+}
+
+//Removes a single row if it has been externally processed
+function hideSingleDisabledRow(donationId) {
+  $("tr.donation-row.externally-processed#donation_" + donationId).remove();
+}
+
+//Removes all rows that have been externally processed
+function clearDisabledRows() {
+  $("tr.donation-row.externally-processed").remove();
 }
 
 function makeRow(donation) {
   var id = parseInt(donation['pk']);
-  var row = $("<tr id='donation_" + id + "'>");
+  var row = $("<tr class='donation-row' id='donation_" + id + "'>");
   var priorityId = '#priority-'+id;
 
   var prioText = {% if user_can_approve %}"Priority"{% else %}"Send to Head"{% endif %}
@@ -261,6 +283,10 @@ function autoRefresh() {
   trackerAPI.searchObjects("donation", searchParams, function(status, responseText) {
     if(status != 200)
       return;
+
+    //Compute this here before we disable rows so that we don't remove + add in the same update
+    //This is to prevent the view from updating without any visual warning
+    var anyUnprocessedBeforeUpdate = anyUnprocessedDonationsInDOM();
     
     partition = partitioner.getPartition();
 
@@ -296,11 +322,19 @@ function autoRefresh() {
       pendingDonations.push(donation);
     });
 
-    var numPending = pendingDonations.length;
-    if(numPending > 0)
-      $(showNewDonationsElem).text(numPending + " New Donation" + (numPending !== 1 ? "s" : "")).removeClass("btn-success").addClass("btn-success");
-    else
-      $(showNewDonationsElem).text('No New Donations').removeClass("btn-success");
+    //If there are any unprocessed donations on the page, queue these donations up. 
+    //Otherwise, we can safely add/remove elements into the DOM, because we don't need to worry
+    //about messing up someone's view, because they won't be trying to click something.
+    if(anyUnprocessedBeforeUpdate || anyUnprocessedDonationsInDOM())
+    {
+      var numPending = pendingDonations.length;
+      if(numPending > 0)
+        $(showNewDonationsElem).text(numPending + " New Donation" + (numPending !== 1 ? "s" : "")).removeClass("btn-success").addClass("btn-success");
+      else
+        $(showNewDonationsElem).text('No New Donations').removeClass("btn-success");
+    } else {
+      showNewDonations();
+    }
 
     setLoadingMessageDisplay(false);
     setTimeout(autoRefresh, AUTO_REFRESH_INTERVAL_MS);
