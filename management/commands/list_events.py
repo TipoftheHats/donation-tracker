@@ -1,10 +1,4 @@
-from django.core.management.base import BaseCommand, CommandError
-
-from django.conf import settings
-
 import tracker.models as models
-import tracker.viewutil as viewutil
-import tracker.prizemail as prizemail
 import tracker.commandutil as commandutil
 
 
@@ -13,7 +7,12 @@ class Command(commandutil.TrackerCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '-n', '--non-locked', help='list non-locked events only', required=False, default=False)
+            '-n',
+            '--non-locked',
+            help='list non-locked events only',
+            required=False,
+            default=False,
+        )
 
     def handle(self, *args, **options):
         super(Command, self).handle(*args, **options)
@@ -25,7 +24,11 @@ class Command(commandutil.TrackerCommand):
 
         if eventList.exists():
             for event in eventList:
-                self.message('{0} , id: {1}, short: {2}'.format(
-                    event.name, event.id, event.short), 0)
+                self.message(
+                    '{0} , id: {1}, short: {2}'.format(
+                        event.name, event.id, event.short
+                    ),
+                    0,
+                )
         else:
-            self.message("No events.")
+            self.message('No events.')

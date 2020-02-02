@@ -5,7 +5,17 @@ from django.core.urlresolvers import reverse
 from django.utils.safestring import mark_safe
 from django.contrib.auth import get_user_model
 
-from tracker.models import *
+from tracker.models import (
+    Bid,
+    Country,
+    CountryRegion,
+    Donation,
+    Donor,
+    Event,
+    Prize,
+    Runner,
+    SpeedRun,
+)
 import tracker.viewutil as viewutil
 import tracker.filters as filters
 
@@ -64,7 +74,9 @@ class CountryRegionLookup(LookupChannel):
         super(CountryRegionLookup, self).__init__(*args, **kwargs)
 
     def get_query(self, q, request):
-        return CountryRegion.objects.filter(Q(name__icontains=q) | Q(country__name__icontains=q))
+        return CountryRegion.objects.filter(
+            Q(name__icontains=q) | Q(country__name__icontains=q)
+        )
 
     def get_result(self, obj):
         return str(obj)
@@ -96,8 +108,12 @@ class GenericLookup(LookupChannel):
     # by using distinct lookups for admin/non-admin applications (which we should do regardless since
     # non-admin search should be different)
     def format_item_display(self, obj):
-        result = '<a href="{0}">{1}</a>'.format(reverse('admin:tracker_{0}_change'.format(
-            obj._meta.model_name), args=[obj.pk]), escape(str(obj)))
+        result = '<a href="{0}">{1}</a>'.format(
+            reverse(
+                'admin:tracker_{0}_change'.format(obj._meta.model_name), args=[obj.pk]
+            ),
+            escape(str(obj)),
+        )
         return mark_safe(result)
 
 

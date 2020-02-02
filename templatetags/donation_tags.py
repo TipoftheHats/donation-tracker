@@ -1,7 +1,6 @@
 from django import template
-from django.utils.html import conditional_escape, format_html, format_html_join
+from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import mark_safe
-from django.conf import settings
 
 import datetime
 import locale
@@ -20,37 +19,41 @@ def tryresolve(var, context, default=None):
 
 
 def sortlink(style, contents, **args):
-    return format_html('<a href="?{args}"{style}><span style="display:none;">{contents}</span></a>',
-                       args=urllib.parse.urlencode(
-                           [a for a in list(args.items()) if a[1]]),
-                       style=format_html(
-                           ' class="{style}"', style=style) if style else '',
-                       contents=contents)
+    return format_html(
+        '<a href="?{args}"{style}><span style="display:none;">{contents}</span></a>',
+        args=urllib.parse.urlencode([a for a in list(args.items()) if a[1]]),
+        style=format_html(' class="{style}"', style=style) if style else '',
+        contents=contents,
+    )
 
 
 @register.simple_tag(takes_context=True)
 def sort(context, sort_field, page=1):
-    return sortlink('asc', 'Asc', sort=sort_field, order=1, page=page) + sortlink('dsc', 'Dsc', sort=sort_field, order=-1, page=page)
+    return sortlink('asc', 'Asc', sort=sort_field, order=1, page=page) + sortlink(
+        'dsc', 'Dsc', sort=sort_field, order=-1, page=page
+    )
 
 
-@register.tag("pagefirst")
-@register.tag("pagefull")
+@register.tag('pagefirst')
+@register.tag('pagefull')
 def do_pageff(parser, token):
     try:
-        tag_name, = token.split_contents()
+        (tag_name,) = token.split_contents()
     except ValueError:
         raise template.TemplateSyntaxError(
-            '%r tag takes no arguments' % token.contents.split()[0])
+            '%r tag takes no arguments' % token.contents.split()[0]
+        )
     return PageFLFNode(tag_name)
 
 
-@register.tag("pagelast")
+@register.tag('pagelast')
 def do_pagel(parser, token):
     try:
         tag_name, page = token.split_contents()
     except ValueError:
         raise template.TemplateSyntaxError(
-            '%r tag takes one argument' % token.contents.split()[0])
+            '%r tag takes one argument' % token.contents.split()[0]
+        )
     return PageFLFNode(tag_name, page)
 
 
@@ -71,14 +74,15 @@ class PageFLFNode(template.Node):
             return sortlink(None, 'View Full List', sort=sort, order=order, page='full')
 
 
-@register.tag("pageprev")
-@register.tag("pagenext")
+@register.tag('pageprev')
+@register.tag('pagenext')
 def do_pagepn(parser, token):
     try:
         tag_name, page = token.split_contents()
     except ValueError:
         raise template.TemplateSyntaxError(
-            '%r tag requires one argument' % token.contents.split()[0])
+            '%r tag requires one argument' % token.contents.split()[0]
+        )
     return PagePNNode(tag_name, page)
 
 
@@ -93,16 +97,19 @@ class PagePNNode(template.Node):
         sort = tryresolve(template.Variable('request.GET.sort'), context)
         order = tryresolve(template.Variable('request.GET.order'), context)
         page = self.page.resolve(context)
-        return sortlink(self.tag[4:], PagePNNode.dc[self.tag], sort=sort, order=order, page=page)
+        return sortlink(
+            self.tag[4:], PagePNNode.dc[self.tag], sort=sort, order=order, page=page
+        )
 
 
-@register.tag("pagelink")
+@register.tag('pagelink')
 def do_pagelink(parser, token):
     try:
         tag_name, page = token.split_contents()
     except ValueError:
         raise template.TemplateSyntaxError(
-            '%r tag requires one argument' % token.contents.split()[0])
+            '%r tag requires one argument' % token.contents.split()[0]
+        )
     return PageLinkNode(tag_name, page)
 
 
@@ -118,13 +125,14 @@ class PageLinkNode(template.Node):
         return sortlink('', page, sort=sort, order=order, page=page)
 
 
-@register.tag("datetime")
+@register.tag('datetime')
 def do_datetime(parser, token):
     try:
         tag_name, date = token.split_contents()
     except ValueError:
         raise template.TemplateSyntaxError(
-            '%r tag requires one argument' % token.contents.split()[0])
+            '%r tag requires one argument' % token.contents.split()[0]
+        )
     return DateTimeNode(tag_name, date)
 
 
@@ -135,16 +143,21 @@ class DateTimeNode(template.Node):
 
     def render(self, context):
         date = self.date.resolve(context)
-        return '<span class="datetime">' + date.strftime('%m/%d/%Y %H:%M:%S') + ' +0000</span>'
+        return (
+            '<span class="datetime">'
+            + date.strftime('%m/%d/%Y %H:%M:%S')
+            + ' +0000</span>'
+        )
 
 
-@register.tag("rendertime")
+@register.tag('rendertime')
 def do_rendertime(parser, token):
     try:
         tag_name, time = token.split_contents()
     except ValueError:
         raise template.TemplateSyntaxError(
-            '%r tag requires a single argument' % token.contents.split()[0])
+            '%r tag requires a single argument' % token.contents.split()[0]
+        )
     return RenderTimeNode(time)
 
 
@@ -167,7 +180,11 @@ class RenderTimeNode(template.Node):
 @register.simple_tag(takes_context=True, name='donor_link')
 def donor_link(context, donor, event=None):
     if donor.visibility != 'ANON':
-        return format_html('<a href="{url}">{name}</a>', url=donor.get_absolute_url(event), name=donor.visible_name())
+        return format_html(
+            '<a href="{url}">{name}</a>',
+            url=donor.get_absolute_url(event),
+            name=donor.visible_name(),
+        )
     else:
         return donor.ANONYMOUS
 
@@ -177,7 +194,10 @@ def forumfilter(value, autoescape=None):
     if autoescape:
         esc = conditional_escape
     else:
-        def esc(x): return x
+
+        def esc(x):
+            return x
+
     return mark_safe(esc(value).replace('\n', '<br />'))
 
 
@@ -202,15 +222,15 @@ def money(value):
 money.is_safe = True
 
 
-@register.filter("abs")
+@register.filter('abs')
 def filabs(value, arg):
     try:
-        return abs(int(value)-int(arg))
+        return abs(int(value) - int(arg))
     except ValueError:
         raise template.TemplateSyntaxError('abs requires integer arguments')
 
 
-@register.filter("mod")
+@register.filter('mod')
 def filmod(value, arg):
     try:
         return int(value) % int(arg)
@@ -218,7 +238,7 @@ def filmod(value, arg):
         raise template.TemplateSyntaxError('mod requires integer arguments')
 
 
-@register.filter("negate")
+@register.filter('negate')
 def negate(value):
     return not value
 
@@ -229,18 +249,39 @@ def admin_url(obj):
 
 
 @register.simple_tag(takes_context=True)
-def standardform(context, form, formid="formid", submittext='Submit', action=None, showrequired=True):
-    return template.loader.render_to_string('standardform.html', {'form': form, 'formid': formid, 'submittext': submittext, action: action, 'csrf_token': context.get('csrf_token', None), 'showrequired': showrequired})
+def standardform(
+    context, form, formid='formid', submittext='Submit', action=None, showrequired=True
+):
+    return template.loader.render_to_string(
+        'standardform.html',
+        {
+            'form': form,
+            'formid': formid,
+            'submittext': submittext,
+            action: action,
+            'csrf_token': context.get('csrf_token', None),
+            'showrequired': showrequired,
+        },
+    )
 
 
 @register.simple_tag(takes_context=True)
 def form_innards(context, form, showrequired=True):
-    return template.loader.render_to_string('form_innards.html', {'form': form, 'showrequired': showrequired, 'csrf_token': context.get('csrf_token', None)})
+    return template.loader.render_to_string(
+        'form_innards.html',
+        {
+            'form': form,
+            'showrequired': showrequired,
+            'csrf_token': context.get('csrf_token', None),
+        },
+    )
 
 
 @register.simple_tag
 def address(donor):
-    return template.loader.render_to_string('tracker/donor_address.html', {'donor': donor})
+    return template.loader.render_to_string(
+        'tracker/donor_address.html', {'donor': donor}
+    )
 
 
 @register.filter('mail_name')
