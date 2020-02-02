@@ -80,9 +80,9 @@ _GeneralFields = {
     'prizecategory': ['name',],
     'prizewinner': ['prize', 'winner'],
     'prizeentry': ['prize', 'donor'],
-    'run': ['name', 'description',],
+    'run': ['name', 'description'],
     'log': ['category', 'message', 'event'],
-    'runner': ['name', 'stream', 'twitter', 'youtube',],
+    'runner': ['name', 'stream', 'twitter', 'youtube','platform','pronouns'],
 }
 
 _SpecificFields = {
@@ -297,10 +297,11 @@ _SpecificFields = {
         'timestamp_gte': 'timestamp__gte',
     },
     'runner': {
-        'name': 'name',
+        'name': 'name__iexact',
         'stream': 'stream',
         'twitter': 'twitter',
         'youtube': 'youtube',
+        'event': 'speedrun__event',
     },
 }
 
@@ -480,7 +481,7 @@ def default_time(time):
         time = datetime.utcnow()
     elif isinstance(time, str):
         time = dateutil.parser.parse(time)
-    return time.replace(tzinfo=pytz.utc)
+    return time.astimezone(pytz.utc)
 
 
 _DEFAULT_DONATION_DELTA = timedelta(hours=3)

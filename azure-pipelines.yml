@@ -52,7 +52,7 @@ steps:
 - script: |
     python -m pip install --upgrade pip setuptools wheel
     pip install -r requirements.txt
-    pip install unittest-xml-reporting
+    pip install unittest-xml-reporting tblib
   displayName: 'Install python prerequisites'
 
 - task: CacheBeta@1
@@ -65,6 +65,13 @@ steps:
     cd tracker
     yarn install
   displayName: 'Install node prerequisites'
+
+- script: |
+    pushd '$(projectRoot)'
+    mkdir db
+    python manage.py migrate tracker
+    python manage.py makemigrations --check --dry-run tracker
+  displayName: 'Check for bad or missing migrations'
 
 - script: |
     cd tracker
