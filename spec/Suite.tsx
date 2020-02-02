@@ -1,4 +1,4 @@
-import React, {ComponentClass} from 'react';
+import * as React from 'react';
 
 let componentFakes: any[] = [];
 let oldCreateElement: typeof React.createElement;
@@ -9,7 +9,7 @@ beforeEach(function () {
 
     // @ts-ignore
     spyOn(React, 'createElement').and.callFake(function (type, props, ...children) {
-        let fake = componentFakes.find(f => f.componentClass === type);
+        const fake = componentFakes.find(f => f.componentClass === type);
         if (fake) {
             type = fake.replacementClass;
         }
@@ -21,8 +21,12 @@ function name(klass: any) {
     return klass.displayName || klass.name || klass.toString();
 }
 
+interface Children {
+    children: React.ReactNode;
+}
+
 function createMockReactClass(Klass: any) {
-    return class extends React.Component {
+    return class extends React.Component<Children> {
         static displayName = `Mock${name(Klass)}`;
         static propTypes = {...Klass.propTypes};
         static contextTypes = {...Klass.contextTypes};
@@ -45,11 +49,10 @@ function createWrappedReactClass(Klass: any) {
     }
 }
 
-
 export function mockComponent(componentClass: any): ReturnType<typeof createMockReactClass> {
     const alreadyMocked = componentFakes.find(cf => cf.componentClass === componentClass);
     expect(alreadyMocked).toBeUndefined('This component has already been replaced');
-    let fakeComponentClass = createMockReactClass(componentClass);
+    const fakeComponentClass = createMockReactClass(componentClass);
 
     componentFakes.push({componentClass: componentClass, replacementClass: fakeComponentClass});
 
@@ -59,7 +62,7 @@ export function mockComponent(componentClass: any): ReturnType<typeof createMock
 export function wrapComponent(componentClass: any): ReturnType<typeof createWrappedReactClass> {
     const alreadyMocked = componentFakes.find(cf => cf.componentClass === componentClass);
     expect(alreadyMocked).toBeUndefined('This component has already been replaced');
-    let wrappedComponentClass = createWrappedReactClass(componentClass);
+    const wrappedComponentClass = createWrappedReactClass(componentClass);
 
     componentFakes.push({componentClass: componentClass, replacementClass: wrappedComponentClass});
 

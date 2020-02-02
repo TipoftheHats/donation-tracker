@@ -444,6 +444,8 @@ class Donate extends React.PureComponent {
     });
   }
 
+  // TODO: split this up
+  /* eslint-disable complexity */
   render() {
     const {
       showIncentives,
