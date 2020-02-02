@@ -20,7 +20,6 @@ class TestDeleteProtection(TransactionTestCase):
     def tearDown(self):
         for m in [
             models.PrizeWinner,
-            models.PrizeTicket,
             models.DonationBid,
             models.Bid,
             models.Donation,
@@ -62,14 +61,6 @@ class TestDeleteProtection(TransactionTestCase):
         )[0]
 
     @property
-    def scratchPrizeTicketed(self):
-        return models.Prize.objects.get_or_create(
-            name='Scratch Prize Ticketed',
-            event=self.event,
-            defaults=dict(ticketdraw=True),
-        )[0]
-
-    @property
     def scratchPrizeRun(self):
         return models.Prize.objects.get_or_create(
             name='Scratch Prize Run',
@@ -81,20 +72,6 @@ class TestDeleteProtection(TransactionTestCase):
     def scratchPrizeWinner(self):
         return models.PrizeWinner.objects.get_or_create(
             winner=self.scratchDonor, prize=self.scratchPrizeTimed
-        )[0]
-
-    @property
-    def scratchPrizeWinnerTicketed(self):
-        return models.PrizeWinner.objects.get_or_create(
-            winner=self.scratchDonor, prize=self.scratchPrizeTicketed
-        )[0]
-
-    @property
-    def scratchPrizeTicket(self):
-        return models.PrizeTicket.objects.get_or_create(
-            prize=self.scratchPrizeTicketed,
-            donation=self.scratchDonation,
-            defaults=dict(amount=5),
         )[0]
 
     @property
@@ -168,11 +145,6 @@ class TestDeleteProtection(TransactionTestCase):
             self.assertDeleteProtected(run, self.scratchPrizeRun)
             self.assertDeleteProtected(run, self.scratchBidRun)
 
-    def testDeletePrize(self):
-        with self.Delete(self.scratchPrizeTicketed) as prize:
-            self.assertDeleteProtected(prize, self.scratchPrizeWinnerTicketed)
-            self.assertDeleteProtected(prize, self.scratchPrizeTicket)
-
     def testDeleteDonor(self):
         with self.Delete(self.scratchDonor) as donor:
             self.assertDeleteProtected(donor, self.scratchPrizeWinner)
@@ -182,4 +154,3 @@ class TestDeleteProtection(TransactionTestCase):
     def testDeleteDonation(self):
         with self.Delete(self.scratchDonation) as donation:
             self.assertDeleteProtected(donation, self.scratchDonationBid)
-            self.assertDeleteProtected(donation, self.scratchPrizeTicket)
