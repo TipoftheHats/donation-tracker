@@ -11,7 +11,7 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, RequestFactory
 
-import models
+from tracker import models
 
 
 def parse_test_mail(mail):
