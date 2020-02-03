@@ -152,7 +152,7 @@ def process_form(request, event):
         steamid = request.session.get('uid', None)
         donation_total = sum(models.Donation.objects.filter(
             steamid=steamid, transactionstate='COMPLETED', event=event).values_list('amount', flat=True)) if steamid else None
-        request.session['steam_donation_total'] = unicode(donation_total)
+        request.session['steam_donation_total'] = str(donation_total)
         commentform = forms.DonationEntryForm(event=event)
         bidsform = forms.DonationBidFormSet(
             amount=Decimal('0.00'), prefix=bidsFormPrefix
