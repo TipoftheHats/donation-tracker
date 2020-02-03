@@ -124,6 +124,7 @@ const Prize = (props: PrizeProps) => {
     );
 
   const prizeDetails = getPrizeDetails(prize);
+  const prizeImage = PrizeUtils.getPrimaryImage(prize);
 
   const handleBack = () => {
     RouterUtils.navigateTo(Routes.EVENT_PRIZES(prize.eventId));
@@ -133,7 +134,15 @@ const Prize = (props: PrizeProps) => {
     <Container size={Container.Sizes.WIDE}>
       <div className={styles.container}>
         <div className={styles.gallery}>
-          <img className={styles.image} src={PrizeUtils.getPrimaryImage(prize)} />
+          {prizeImage != null ? (
+            <img className={styles.image} src={prizeImage} />
+          ) : (
+            <div className={styles.noImage}>
+              <Header size={Header.Sizes.H4} color={Header.Colors.MUTED}>
+                No Image Provided
+              </Header>
+            </div>
+          )}
         </div>
         <div className={styles.content}>
           <div className={styles.summary}>
@@ -142,14 +151,18 @@ const Prize = (props: PrizeProps) => {
             </Header>
             <Text size={Text.Sizes.SIZE_16} color={Text.Colors.MUTED}>
               {event != null ? (
-                <strong className={styles.summaryItem}>
-                  <Anchor href={event.canonicalUrl}>{event.public}</Anchor>
-                </strong>
+                <React.Fragment>
+                  <strong className={styles.summaryItem}>
+                    <Anchor href={event.canonicalUrl}>{event.public}</Anchor>
+                  </strong>
+                  &nbsp;&middot;&nbsp;
+                </React.Fragment>
               ) : null}
-              &nbsp;&middot;&nbsp;
-              <span className={styles.summaryItem}>
-                Provided by <strong>{prize.provider}</strong>
-              </span>
+              {prize.provider != null ? (
+                <span className={styles.summaryItem}>
+                  Provided by <strong>{prize.provider}</strong>
+                </span>
+              ) : null}
             </Text>
             <Text size={Text.Sizes.SIZE_20}>
               <strong>{CurrencyUtils.asCurrency(prize.minimumBid)} </strong>

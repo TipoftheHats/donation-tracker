@@ -6,44 +6,45 @@ import pytz
 from dateutil.parser import parse as parse_date
 from django.contrib.admin import ACTION_CHECKBOX_NAME
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.core.urlresolvers import reverse
 from django.test import TestCase
 from django.test import TransactionTestCase
 
+from . import MigrationsTestCase
 from .. import models, prizeutil, randgen
 
 noon = datetime.time(12, 0)
 today = datetime.date.today()
-today_noon = datetime.datetime.combine(today, noon)
+today_noon = datetime.datetime.combine(today, noon).astimezone(pytz.UTC)
 tomorrow = today + datetime.timedelta(days=1)
-tomorrow_noon = datetime.datetime.combine(tomorrow, noon)
+tomorrow_noon = datetime.datetime.combine(tomorrow, noon).astimezone(pytz.UTC)
 long_ago = today - datetime.timedelta(days=180)
-long_ago_noon = datetime.datetime.combine(long_ago, noon)
+long_ago_noon = datetime.datetime.combine(long_ago, noon).astimezone(pytz.UTC)
 
 
 class TestPrizeGameRange(TransactionTestCase):
     def setUp(self):
         self.rand = random.Random(None)
-        self.event = randgen.generate_event(self.rand, startTime=today_noon)
+        self.event = randgen.generate_event(self.rand, start_time=today_noon)
         self.event.save()
 
     def test_prize_range_single(self):
-        runs = randgen.generate_runs(self.rand, self.event, 4, True)
+        runs = randgen.generate_runs(self.rand, self.event, 4, scheduled=True)
         run = runs[1]
         prize = randgen.generate_prize(
-            self.rand, event=self.event, startRun=run, endRun=run
+            self.rand, event=self.event, start_run=run, end_run=run
         )
         prizeRuns = prize.games_range()
         self.assertEqual(1, prizeRuns.count())
         self.assertEqual(run.id, prizeRuns[0].id)
 
     def test_prize_range_pair(self):
-        runs = randgen.generate_runs(self.rand, self.event, 5, True)
+        runs = randgen.generate_runs(self.rand, self.event, 5, scheduled=True)
         startRun = runs[2]
         endRun = runs[3]
         prize = randgen.generate_prize(
-            self.rand, event=self.event, startRun=startRun, endRun=endRun
+            self.rand, event=self.event, start_run=startRun, end_run=endRun
         )
         prizeRuns = prize.games_range()
         self.assertEqual(2, prizeRuns.count())
@@ -51,10 +52,10 @@ class TestPrizeGameRange(TransactionTestCase):
         self.assertEqual(endRun.id, prizeRuns[1].id)
 
     def test_prize_range_gap(self):
-        runs = randgen.generate_runs(self.rand, self.event, 7, True)
+        runs = randgen.generate_runs(self.rand, self.event, 7, scheduled=True)
         runsSlice = runs[2:5]
         prize = randgen.generate_prize(
-            self.rand, event=self.event, startRun=runsSlice[0], endRun=runsSlice[-1]
+            self.rand, event=self.event, start_run=runsSlice[0], end_run=runsSlice[-1]
         )
         prizeRuns = prize.games_range()
         self.assertEqual(len(runsSlice), prizeRuns.count())
@@ -62,14 +63,14 @@ class TestPrizeGameRange(TransactionTestCase):
             self.assertEqual(runsSlice[i].id, prizeRuns[i].id)
 
     def test_time_prize_no_range(self):
-        runs = randgen.generate_runs(self.rand, self.event, 7, True)
+        runs = randgen.generate_runs(self.rand, self.event, 7, scheduled=True)
         eventEnd = runs[-1].endtime
         timeA = randgen.random_time(self.rand, self.event.datetime, eventEnd)
         timeB = randgen.random_time(self.rand, self.event.datetime, eventEnd)
         randomStart = min(timeA, timeB)
         randomEnd = max(timeA, timeB)
         prize = randgen.generate_prize(
-            self.rand, event=self.event, startTime=randomStart, endTime=randomEnd
+            self.rand, event=self.event, start_time=randomStart, end_time=randomEnd
         )
         prizeRuns = prize.games_range()
         self.assertEqual(0, prizeRuns.count())
@@ -82,13 +83,15 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
         self.eventStart = parse_date('2014-01-01 16:00:00Z')
         self.rand = random.Random(516273)
         self.event = randgen.build_random_event(
-            self.rand, self.eventStart, numDonors=100, numRuns=50
+            self.rand, start_time=self.eventStart, num_donors=100, num_runs=50
         )
         self.runsList = list(models.SpeedRun.objects.filter(event=self.event))
         self.donorList = list(models.Donor.objects.all())
 
     def test_draw_random_prize_no_donations(self):
-        prizeList = randgen.generate_prizes(self.rand, self.event, 50, self.runsList)
+        prizeList = randgen.generate_prizes(
+            self.rand, self.event, 50, list_of_runs=self.runsList
+        )
         for prize in prizeList:
             for randomness in [True, False]:
                 for useSum in [True, False]:
@@ -110,10 +113,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                     prize = randgen.generate_prize(
                         self.rand,
                         event=self.event,
-                        sumDonations=useSum,
-                        randomDraw=useRandom,
-                        startRun=startRun,
-                        endRun=endRun,
+                        sum_donations=useSum,
+                        random_draw=useRandom,
+                        start_run=startRun,
+                        end_run=endRun,
                     )
                     prize.save()
                     donor = randgen.pick_random_element(self.rand, self.donorList)
@@ -121,8 +124,8 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                         self.rand,
                         donor=donor,
                         event=self.event,
-                        minTime=prize.start_draw_time(),
-                        maxTime=prize.end_draw_time(),
+                        min_time=prize.start_draw_time(),
+                        max_time=prize.end_draw_time(),
                     )
                     if donationSize == 'above':
                         donation.amount = prize.maximumbid + Decimal('5.00')
@@ -131,9 +134,8 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                     elif donationSize == 'within':
                         donation.amount = randgen.random_amount(
                             self.rand,
-                            rounded=False,
-                            minAmount=prize.minimumbid,
-                            maxAmount=prize.maximumbid,
+                            min_amount=prize.minimumbid,
+                            max_amount=prize.maximumbid,
                         )
                     elif donationSize == 'bottom':
                         donation.amount = prize.minimumbid
@@ -180,10 +182,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
         prize = randgen.generate_prize(
             self.rand,
             event=self.event,
-            sumDonations=False,
-            randomDraw=True,
-            startRun=startRun,
-            endRun=endRun,
+            sum_donations=False,
+            random_draw=True,
+            start_run=startRun,
+            end_run=endRun,
         )
         prize.save()
         donationDonors = {}
@@ -193,10 +195,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                     self.rand,
                     donor=donor,
                     event=self.event,
-                    minAmount=prize.minimumbid,
-                    maxAmount=prize.minimumbid + Decimal('100.00'),
-                    minTime=prize.start_draw_time(),
-                    maxTime=prize.end_draw_time(),
+                    min_amount=prize.minimumbid,
+                    max_amount=prize.minimumbid + Decimal('100.00'),
+                    min_time=prize.start_draw_time(),
+                    max_time=prize.end_draw_time(),
                 )
                 donation.save()
                 donationDonors[donor.id] = donor
@@ -206,18 +208,18 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                 self.rand,
                 donor=donor,
                 event=self.event,
-                minAmount=prize.minimumbid,
-                maxAmount=prize.minimumbid + Decimal('100.00'),
-                maxTime=prize.start_draw_time() - datetime.timedelta(seconds=1),
+                min_amount=prize.minimumbid,
+                max_amount=prize.minimumbid + Decimal('100.00'),
+                max_time=prize.start_draw_time() - datetime.timedelta(seconds=1),
             )
             donation2.save()
             donation3 = randgen.generate_donation(
                 self.rand,
                 donor=donor,
                 event=self.event,
-                minAmount=prize.minimumbid,
-                maxAmount=prize.minimumbid + Decimal('100.00'),
-                minTime=prize.end_draw_time() + datetime.timedelta(seconds=1),
+                min_amount=prize.minimumbid,
+                max_amount=prize.minimumbid + Decimal('100.00'),
+                min_time=prize.end_draw_time() + datetime.timedelta(seconds=1),
             )
             donation3.save()
         eligibleDonors = prize.eligible_donors()
@@ -258,10 +260,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
         prize = randgen.generate_prize(
             self.rand,
             event=self.event,
-            sumDonations=True,
-            randomDraw=True,
-            startRun=startRun,
-            endRun=endRun,
+            sum_donations=True,
+            random_draw=True,
+            start_run=startRun,
+            end_run=endRun,
         )
         prize.save()
         donationDonors = {}
@@ -274,10 +276,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                     self.rand,
                     donor=donor,
                     event=self.event,
-                    minAmount=Decimal('0.01'),
-                    maxAmount=prize.minimumbid - Decimal('0.10'),
-                    minTime=prize.start_draw_time(),
-                    maxTime=prize.end_draw_time(),
+                    min_amount=Decimal('0.01'),
+                    max_amount=prize.minimumbid - Decimal('0.10'),
+                    min_time=prize.start_draw_time(),
+                    max_time=prize.end_draw_time(),
                 )
                 donation.save()
                 donationDonors[donor.id]['amount'] += donation.amount
@@ -289,26 +291,27 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                         self.rand,
                         donor=donor,
                         event=self.event,
-                        minAmount=Decimal('0.01'),
-                        maxAmount=prize.minimumbid - Decimal('0.10'),
-                        maxTime=prize.start_draw_time() - datetime.timedelta(seconds=1),
+                        min_amount=Decimal('0.01'),
+                        max_amount=prize.minimumbid - Decimal('0.10'),
+                        max_time=prize.start_draw_time()
+                        - datetime.timedelta(seconds=1),
                     )
                 else:
                     donation = randgen.generate_donation(
                         self.rand,
                         donor=donor,
                         event=self.event,
-                        minAmount=Decimal('0.01'),
-                        maxAmount=prize.minimumbid - Decimal('0.10'),
-                        minTime=prize.end_draw_time() + datetime.timedelta(seconds=1),
+                        min_amount=Decimal('0.01'),
+                        max_amount=prize.minimumbid - Decimal('0.10'),
+                        min_time=prize.end_draw_time() + datetime.timedelta(seconds=1),
                     )
                 donation.save()
             if donationDonors[donor.id]['amount'] < prize.minimumbid:
                 del donationDonors[donor.id]
         eligibleDonors = prize.eligible_donors()
         self.assertEqual(len(list(donationDonors.keys())), len(eligibleDonors))
+        found = False
         for eligibleDonor in eligibleDonors:
-            found = False
             if eligibleDonor['donor'] in donationDonors:
                 entry = donationDonors[eligibleDonor['donor']]
                 donor = entry['donor']
@@ -330,7 +333,8 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                         Decimal(eligibleDonor['weight']),
                     )
                     found = True
-        self.assertTrue(found and 'Could not find the donor in the list')
+        # FIXME: what is this actually asserting? it's not very clear to me by glancing at it
+        self.assertTrue(found, 'Could not find the donor in the list')
         winners = []
         for seed in [51234, 235426, 62363245]:
             result, message = prizeutil.draw_prize(prize, seed)
@@ -355,10 +359,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
         prize = randgen.generate_prize(
             self.rand,
             event=self.event,
-            sumDonations=False,
-            randomDraw=False,
-            startRun=startRun,
-            endRun=endRun,
+            sum_donations=False,
+            random_draw=False,
+            start_run=startRun,
+            end_run=endRun,
         )
         prize.save()
         largestDonor = None
@@ -371,10 +375,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                     self.rand,
                     donor=donor,
                     event=self.event,
-                    minAmount=Decimal('0.01'),
-                    maxAmount=Decimal('1000.00'),
-                    minTime=prize.start_draw_time(),
-                    maxTime=prize.end_draw_time(),
+                    min_amount=Decimal('0.01'),
+                    max_amount=Decimal('1000.00'),
+                    min_time=prize.start_draw_time(),
+                    max_time=prize.end_draw_time(),
                 )
                 donation.save()
                 if donation.amount > largestAmount:
@@ -388,20 +392,21 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                         self.rand,
                         donor=donor,
                         event=self.event,
-                        minAmount=Decimal('1000.01'),
-                        maxAmount=Decimal('2000.00'),
-                        maxTime=prize.start_draw_time() - datetime.timedelta(seconds=1),
+                        min_amount=Decimal('1000.01'),
+                        max_amount=Decimal('2000.00'),
+                        max_time=prize.start_draw_time()
+                        - datetime.timedelta(seconds=1),
                     )
                 else:
                     donation = randgen.generate_donation(
                         self.rand,
                         donor=donor,
                         event=self.event,
-                        minAmount=Decimal('1000.01'),
-                        maxAmount=max(
+                        min_amount=Decimal('1000.01'),
+                        max_amount=max(
                             Decimal('1000.01'), prize.minimumbid - Decimal('2000.00')
                         ),
-                        minTime=prize.end_draw_time() + datetime.timedelta(seconds=1),
+                        min_time=prize.end_draw_time() + datetime.timedelta(seconds=1),
                     )
                 donation.save()
         eligibleDonors = prize.eligible_donors()
@@ -421,10 +426,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
             self.rand,
             donor=newDonor,
             event=self.event,
-            minAmount=Decimal('1000.01'),
-            maxAmount=Decimal('2000.00'),
-            minTime=prize.start_draw_time(),
-            maxTime=prize.end_draw_time(),
+            min_amount=Decimal('1000.01'),
+            max_amount=Decimal('2000.00'),
+            min_time=prize.start_draw_time(),
+            max_time=prize.end_draw_time(),
         )
         newDonation.save()
         eligibleDonors = prize.eligible_donors()
@@ -445,10 +450,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
         prize = randgen.generate_prize(
             self.rand,
             event=self.event,
-            sumDonations=True,
-            randomDraw=False,
-            startRun=startRun,
-            endRun=endRun,
+            sum_donations=True,
+            random_draw=False,
+            start_run=startRun,
+            end_run=endRun,
         )
         prize.save()
         donationDonors = {}
@@ -461,10 +466,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                     self.rand,
                     donor=donor,
                     event=self.event,
-                    minAmount=Decimal('0.01'),
-                    maxAmount=Decimal('100.00'),
-                    minTime=prize.start_draw_time(),
-                    maxTime=prize.end_draw_time(),
+                    min_amount=Decimal('0.01'),
+                    max_amount=Decimal('100.00'),
+                    min_time=prize.start_draw_time(),
+                    max_time=prize.end_draw_time(),
                 )
                 donation.save()
                 donationDonors[donor.id]['amount'] += donation.amount
@@ -476,20 +481,21 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
                         self.rand,
                         donor=donor,
                         event=self.event,
-                        minAmount=Decimal('1000.01'),
-                        maxAmount=Decimal('2000.00'),
-                        maxTime=prize.start_draw_time() - datetime.timedelta(seconds=1),
+                        min_amount=Decimal('1000.01'),
+                        max_amount=Decimal('2000.00'),
+                        max_time=prize.start_draw_time()
+                        - datetime.timedelta(seconds=1),
                     )
                 else:
                     donation = randgen.generate_donation(
                         self.rand,
                         donor=donor,
                         event=self.event,
-                        minAmount=Decimal('1000.01'),
-                        maxAmount=max(
+                        min_amount=Decimal('1000.01'),
+                        max_amount=max(
                             Decimal('1000.01'), prize.minimumbid - Decimal('2000.00')
                         ),
-                        minTime=prize.end_draw_time() + datetime.timedelta(seconds=1),
+                        min_time=prize.end_draw_time() + datetime.timedelta(seconds=1),
                     )
                 donation.save()
         maxDonor = max(list(donationDonors.items()), key=lambda x: x[1]['amount'])[1]
@@ -513,10 +519,10 @@ class TestPrizeDrawingGeneratedEvent(TransactionTestCase):
             self.rand,
             donor=newDonor,
             event=self.event,
-            minAmount=diff + Decimal('0.01'),
-            maxAmount=diff + Decimal('100.00'),
-            minTime=prize.start_draw_time(),
-            maxTime=prize.end_draw_time(),
+            min_amount=diff + Decimal('0.01'),
+            max_amount=diff + Decimal('100.00'),
+            min_time=prize.start_draw_time(),
+            max_time=prize.end_draw_time(),
         )
         newDonation.save()
         maxDonor['amount'] += newDonation.amount
@@ -573,7 +579,7 @@ class TestPrizeMultiWin(TransactionTestCase):
     def setUp(self):
         self.eventStart = parse_date('2012-01-01 01:00:00Z')
         self.rand = random.Random()
-        self.event = randgen.build_random_event(self.rand, startTime=self.eventStart)
+        self.event = randgen.build_random_event(self.rand, start_time=self.eventStart)
         self.event.save()
 
     def testWinMultiPrize(self):
@@ -679,10 +685,10 @@ class TestPersistentPrizeWinners(TransactionTestCase):
         targetPrize = randgen.generate_prize(
             self.rand,
             event=self.event,
-            sumDonations=False,
-            randomDraw=False,
-            minAmount=amount,
-            maxAmount=amount,
+            sum_donations=False,
+            random_draw=False,
+            min_amount=amount,
+            max_amount=amount,
             maxwinners=1,
         )
         targetPrize.save()
@@ -694,8 +700,8 @@ class TestPersistentPrizeWinners(TransactionTestCase):
         donationA = randgen.generate_donation(
             self.rand,
             donor=donorA,
-            minAmount=amount,
-            maxAmount=amount,
+            min_amount=amount,
+            max_amount=amount,
             event=self.event,
         )
         donationA.save()
@@ -707,8 +713,8 @@ class TestPersistentPrizeWinners(TransactionTestCase):
         donationB = randgen.generate_donation(
             self.rand,
             donor=donorB,
-            minAmount=amount,
-            maxAmount=amount,
+            min_amount=amount,
+            max_amount=amount,
             event=self.event,
         )
         donationB.save()
@@ -775,7 +781,7 @@ class TestPrizeCountryFilter(TransactionTestCase):
                 self.rand,
                 event=self.event,
                 donor=donor,
-                minAmount=Decimal(prize.minimumbid),
+                min_amount=Decimal(prize.minimumbid),
             ).save()
 
         self.assertTrue(prize.is_donor_allowed_to_receive(donors[0]))
@@ -821,7 +827,7 @@ class TestPrizeCountryFilter(TransactionTestCase):
                 self.rand,
                 event=self.event,
                 donor=donor,
-                minAmount=Decimal(prize.minimumbid),
+                min_amount=Decimal(prize.minimumbid),
             ).save()
         self.assertTrue(prize.is_donor_allowed_to_receive(donors[0]))
         self.assertTrue(prize.is_donor_allowed_to_receive(donors[1]))
@@ -873,7 +879,7 @@ class TestPrizeCountryFilter(TransactionTestCase):
                 self.rand,
                 event=self.event,
                 donor=donor,
-                minAmount=Decimal(prize.minimumbid),
+                min_amount=Decimal(prize.minimumbid),
             ).save()
 
         for donor in donors:
@@ -908,7 +914,7 @@ class TestPrizeCountryFilter(TransactionTestCase):
                 self.rand,
                 event=self.event,
                 donor=donor,
-                minAmount=Decimal(prize.minimumbid),
+                min_amount=Decimal(prize.minimumbid),
             ).save()
 
         eligible = prize.eligible_donors()
@@ -938,10 +944,10 @@ class TestPrizeDrawAcceptOffset(TransactionTestCase):
         targetPrize = randgen.generate_prize(
             self.rand,
             event=self.event,
-            sumDonations=False,
-            randomDraw=False,
-            minAmount=amount,
-            maxAmount=amount,
+            sum_donations=False,
+            random_draw=False,
+            min_amount=amount,
+            max_amount=amount,
             maxwinners=1,
         )
         targetPrize.save()
@@ -950,8 +956,8 @@ class TestPrizeDrawAcceptOffset(TransactionTestCase):
         winningDonation = randgen.generate_donation(
             self.rand,
             donor=winner,
-            minAmount=amount,
-            maxAmount=amount,
+            min_amount=amount,
+            max_amount=amount,
             event=self.event,
         )
         winningDonation.save()
@@ -977,6 +983,279 @@ class TestPrizeDrawAcceptOffset(TransactionTestCase):
         self.assertEqual(prizeWin, pastDue[0])
 
 
+class TestBackfillPrevNextMigrations(MigrationsTestCase):
+    migrate_from = '0001_squashed_0020_add_runner_pronouns_and_platform'
+    migrate_to = '0003_populate_prev_next_run'
+
+    def setUpBeforeMigration(self, apps):
+        Prize = apps.get_model('tracker', 'Prize')
+        Event = apps.get_model('tracker', 'Event')
+        SpeedRun = apps.get_model('tracker', 'SpeedRun')
+        self.rand = random.Random(None)
+        self.event = Event.objects.create(
+            short='test', name='Test Event', datetime=today_noon, targetamount=100
+        )
+        self.run1 = SpeedRun.objects.create(
+            event=self.event, name='Test Run 1', order=1, run_time='0:05:00'
+        )
+        self.run2 = SpeedRun.objects.create(
+            event=self.event, name='Test Run 2', order=2, run_time='0:05:00'
+        )
+        self.run3 = SpeedRun.objects.create(
+            event=self.event, name='Test Run 3', order=3, run_time='0:05:00'
+        )
+        self.prize1 = Prize.objects.create(
+            event=self.event, name='Test Prize 1', startrun=self.run1, endrun=self.run1
+        )
+        self.prize2 = Prize.objects.create(
+            event=self.event, name='Test Prize 2', startrun=self.run2, endrun=self.run2
+        )
+        self.prize3 = Prize.objects.create(
+            event=self.event, name='Test Prize 3', startrun=self.run3, endrun=self.run3
+        )
+
+    def test_prev_next_backfilled(self):
+        Prize = self.apps.get_model('tracker', 'Prize')
+        prize1 = Prize.objects.get(pk=self.prize1.id)
+        prize2 = Prize.objects.get(pk=self.prize2.id)
+        prize3 = Prize.objects.get(pk=self.prize3.id)
+        self.assertEqual(prize1.prev_run_id, None, 'prize 1 prev run incorrect')
+        self.assertEqual(prize1.next_run_id, self.run2.id, 'prize 1 next run incorrect')
+        self.assertEqual(prize2.prev_run_id, self.run1.id, 'prize 2 prev run incorrect')
+        self.assertEqual(prize2.next_run_id, self.run3.id, 'prize 2 next run incorrect')
+        self.assertEqual(prize3.prev_run_id, self.run2.id, 'prize 3 prev run incorrect')
+        self.assertEqual(prize3.next_run_id, None, 'prize 3 next run incorrect')
+
+
+class TestPrizeSignals(TestCase):
+    def setUp(self):
+        self.rand = random.Random(None)
+        self.event = randgen.generate_event(self.rand)
+        self.event.save()
+        self.runs = randgen.generate_runs(self.rand, self.event, 4, scheduled=True)
+        self.event_prize = models.Prize.objects.create(
+            name='Event Wide Prize', startrun=self.runs[0], endrun=self.runs[3]
+        )
+        self.start_prize = models.Prize.objects.create(
+            name='Start Prize', startrun=self.runs[0], endrun=self.runs[0]
+        )
+        self.middle_prize = models.Prize.objects.create(
+            name='Middle Prize', startrun=self.runs[1], endrun=self.runs[1]
+        )
+        self.end_prize = models.Prize.objects.create(
+            name='End Prize', startrun=self.runs[3], endrun=self.runs[3]
+        )
+        self.start_span_prize = models.Prize.objects.create(
+            name='Start Span Prize', startrun=self.runs[0], endrun=self.runs[1]
+        )
+        self.middle_span_prize = models.Prize.objects.create(
+            name='Middle Span Prize', startrun=self.runs[1], endrun=self.runs[2]
+        )
+        self.end_span_prize = models.Prize.objects.create(
+            name='End Span Prize', startrun=self.runs[2], endrun=self.runs[3]
+        )
+
+    def refresh_all(self):
+        for model in [
+            self.event,
+            self.event_prize,
+            self.start_prize,
+            self.middle_prize,
+            self.end_prize,
+            self.start_span_prize,
+            self.middle_span_prize,
+            self.end_span_prize,
+        ] + self.runs:
+            try:
+                model.refresh_from_db()
+            except ObjectDoesNotExist:
+                pass  # deleted as part of test
+
+    def test_initial_state(self):
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[1])
+        self.assertEqual(self.middle_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_prize.next_run, self.runs[2])
+        self.assertEqual(self.end_prize.prev_run, self.runs[2])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, self.runs[2])
+        self.assertEqual(self.middle_span_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_span_prize.next_run, self.runs[3])
+        self.assertEqual(self.end_span_prize.prev_run, self.runs[1])
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_run_inserted(self):
+        self.runs[3].order = 5
+        self.runs[3].save()
+        self.runs[2].order = 4
+        self.runs[2].save()
+        self.new_run = models.SpeedRun(
+            event=self.event, name='New Run', run_time='0:05:00', order=3
+        )
+        self.new_run.save()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[1])
+        self.assertEqual(self.middle_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_prize.next_run, self.new_run)
+        self.assertEqual(self.end_prize.prev_run, self.runs[2])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, self.new_run)
+        self.assertEqual(self.middle_span_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_span_prize.next_run, self.runs[3])
+        self.assertEqual(self.end_span_prize.prev_run, self.new_run)
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_first_run_removed_from_order(self):
+        self.runs[0].order = None
+        self.runs[0].save()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, None)
+        self.assertEqual(self.middle_prize.prev_run, None)
+        self.assertEqual(self.middle_prize.next_run, self.runs[2])
+        self.assertEqual(self.end_prize.prev_run, self.runs[2])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, None)
+        self.assertEqual(self.middle_span_prize.prev_run, None)
+        self.assertEqual(self.middle_span_prize.next_run, self.runs[3])
+        self.assertEqual(self.end_span_prize.prev_run, self.runs[1])
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_first_run_deleted(self):
+        self.event_prize.startrun = self.runs[1]
+        self.event_prize.save()
+        self.start_prize.delete()
+        self.start_span_prize.delete()
+        self.runs[0].delete()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.middle_prize.prev_run, None)
+        self.assertEqual(self.middle_prize.next_run, self.runs[2])
+        self.assertEqual(self.end_prize.prev_run, self.runs[2])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.middle_span_prize.prev_run, None)
+        self.assertEqual(self.middle_span_prize.next_run, self.runs[3])
+        self.assertEqual(self.end_span_prize.prev_run, self.runs[1])
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_second_run_removed_from_order(self):
+        self.runs[1].order = None
+        self.runs[1].save()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[2])
+        self.assertEqual(self.middle_prize.prev_run, None)
+        self.assertEqual(self.middle_prize.next_run, None)
+        self.assertEqual(self.end_prize.prev_run, self.runs[2])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, None)
+        self.assertEqual(self.middle_span_prize.prev_run, None)
+        self.assertEqual(self.middle_span_prize.next_run, None)
+        self.assertEqual(self.end_span_prize.prev_run, self.runs[0])
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_second_run_deleted(self):
+        self.start_span_prize.delete()
+        self.middle_prize.delete()
+        self.middle_span_prize.delete()
+        self.runs[1].delete()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[2])
+        self.assertEqual(self.end_prize.prev_run, self.runs[2])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.end_span_prize.prev_run, self.runs[0])
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_third_run_removed_from_order(self):
+        self.runs[2].order = None
+        self.runs[2].save()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[1])
+        self.assertEqual(self.middle_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_prize.next_run, self.runs[3])
+        self.assertEqual(self.end_prize.prev_run, self.runs[1])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, self.runs[3])
+        self.assertEqual(self.middle_span_prize.prev_run, None)
+        self.assertEqual(self.middle_span_prize.next_run, None)
+        self.assertEqual(self.end_span_prize.prev_run, None)
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_third_run_deleted(self):
+        self.middle_span_prize.delete()
+        self.end_span_prize.delete()
+        self.runs[2].delete()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[1])
+        self.assertEqual(self.middle_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_prize.next_run, self.runs[3])
+        self.assertEqual(self.end_prize.prev_run, self.runs[1])
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, self.runs[3])
+
+    def test_fourth_run_removed_from_order(self):
+        self.runs[3].order = None
+        self.runs[3].save()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[1])
+        self.assertEqual(self.middle_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_prize.next_run, self.runs[2])
+        self.assertEqual(self.end_prize.prev_run, None)
+        self.assertEqual(self.end_prize.next_run, None)
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, self.runs[2])
+        self.assertEqual(self.middle_span_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_span_prize.next_run, None)
+        self.assertEqual(self.end_span_prize.prev_run, None)
+        self.assertEqual(self.end_span_prize.next_run, None)
+
+    def test_fourth_run_deleted(self):
+        self.end_prize.delete()
+        self.end_span_prize.delete()
+        self.event_prize.endrun = self.runs[2]
+        self.event_prize.save()
+        self.runs[3].delete()
+        self.refresh_all()
+        self.assertEqual(self.event_prize.prev_run, None)
+        self.assertEqual(self.event_prize.next_run, None)
+        self.assertEqual(self.start_prize.prev_run, None)
+        self.assertEqual(self.start_prize.next_run, self.runs[1])
+        self.assertEqual(self.middle_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_prize.next_run, self.runs[2])
+        self.assertEqual(self.start_span_prize.prev_run, None)
+        self.assertEqual(self.start_span_prize.next_run, self.runs[2])
+        self.assertEqual(self.middle_span_prize.prev_run, self.runs[0])
+        self.assertEqual(self.middle_span_prize.next_run, None)
+
+
 class TestPrizeKey(TestCase):
     def setUp(self):
         self.rand = random.Random(None)
@@ -988,9 +1267,9 @@ class TestPrizeKey(TestCase):
         self.prize = randgen.generate_prize(
             self.rand,
             event=self.event,
-            startRun=self.run,
-            endRun=self.run,
-            randomDraw=True,
+            start_run=self.run,
+            end_run=self.run,
+            random_draw=True,
         )
         self.prize.key_code = True
         self.prize.save()

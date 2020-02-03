@@ -41,7 +41,7 @@ export type Prize = {
   // current state of the schedule.
   startDrawTime?: DateTime;
   endDrawTime?: DateTime;
-  provider: string;
+  provider?: string;
   creator?: string;
   creatorEmail?: string;
   creatorWebsite?: string;
@@ -60,27 +60,8 @@ export type Prize = {
 export type PrizeSearchFilter = {
   id?: string;
   name?: string;
-  description?: string;
-  shortDescription?: string;
-  prizeWinnerId?: string;
-  provider?: string;
-  eventId?: string;
-  eventShortName?: string;
-  eventName?: string;
-  locked?: boolean;
-  categoryId?: string;
-  categoryName?: string;
-  startRunId?: string;
-  endRunId?: string;
-  startsBefore?: DateTime;
-  startsAfter?: DateTime;
-  endsBefore?: DateTime;
-  endsAfter?: DateTime;
-  sumDonations?: boolean;
-  randomDraw?: boolean;
-  state?: string;
-  handlerId?: string;
-  creatorId?: string;
+  // maps to `prize.eventId`
+  event?: string;
 };
 
 export type PrizeAction =
