@@ -5,11 +5,11 @@ import pytz
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Sum, Q
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+from django.urls import reverse
 
 from tracker import util
 from tracker.models import Event, Donation, SpeedRun
@@ -141,6 +141,7 @@ class Prize(models.Model):
         USER_MODEL_NAME,
         null=True,
         help_text='User account responsible for prize shipping',
+        on_delete=models.PROTECT,
     )
     acceptemailsent = models.BooleanField(
         default=False, verbose_name='Accept/Deny Email Sent'
@@ -204,7 +205,7 @@ class Prize(models.Model):
         unique_together = ('name', 'event')
 
     def natural_key(self):
-        return (self.name, self.event.natural_key())
+        return self.name, self.event.natural_key()
 
     def get_absolute_url(self):
         return reverse('tracker:prize', args=(self.id,))
@@ -247,10 +248,6 @@ class Prize(models.Model):
         if self.startrun and self.starttime:
             raise ValidationError(
                 {'starttime': 'Cannot have both Start/End Run and Start/End Time set'}
-            )
-        if self.image and self.imagefile:
-            raise ValidationError(
-                {'image': 'Cannot have both an Image URL and an Image File'}
             )
 
     def save(self, *args, **kwargs):
@@ -471,11 +468,7 @@ class Prize(models.Model):
 
     def get_prize_winner(self):
         if self.maxwinners == 1:
-            winners = self.get_prize_winners()
-            if len(winners) > 0:
-                return winners[0]
-            else:
-                return None
+            return self.get_prize_winners().first()
         else:
             raise Exception('Cannot get single winner for multi-winner prize')
 
@@ -550,7 +543,7 @@ class PrizeKey(models.Model):
         return self.prize_winner_id and self.prize_winner.winner
 
     def __str__(self):
-        return '%s: ****%s' % (self.prize, self.key[-4:])
+        return f'{self.prize}: ****{self.key[-4:]}'
 
 
 @receiver(post_save, sender=Prize)
@@ -700,6 +693,11 @@ class PrizeWinner(models.Model):
             'winner',
         )
 
+    @property
+    def donor_cache(self):
+        # accounts for people who mail-in entry and never donated
+        return self.winner.cache_for(self.prize.event_id) or self.winner
+
     def accept_deadline_date(self):
         """Return the actual calendar date associated with the accept deadline"""
         if self.acceptdeadline:
@@ -788,7 +786,7 @@ class PrizeWinner(models.Model):
         super(PrizeWinner, self).save(*args, **kwargs)
 
     def __str__(self):
-        return str(self.prize) + ' -- ' + str(self.winner)
+        return f'{self.prize} -- {self.winner}'
 
 
 class PrizeCategoryManager(models.Manager):
@@ -841,4 +839,4 @@ class DonorPrizeEntry(models.Model):
         )
 
     def __str__(self):
-        return str(self.donor) + ' entered to win ' + str(self.prize)
+        return f'{self.donor} entered to win {self.prize}'

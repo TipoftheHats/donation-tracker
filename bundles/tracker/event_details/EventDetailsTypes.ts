@@ -11,6 +11,7 @@ export type Incentive = {
     description?: string;
   };
   runname: string;
+  order: number;
   count?: number;
   goal?: number;
   description?: string;
@@ -31,15 +32,14 @@ export type EventDetails = {
   csrfToken: string;
   receiverName: string;
   prizesUrl: string;
-  rulesUrl?: string;
   donateUrl: string;
   minimumDonation: number;
   maximumDonation: number;
   step: number;
   availableIncentives: { [incentiveId: number]: Incentive };
-  prizes: Array<Prize>;
+  prizes: Prize[];
 };
 
 export type EventDetailsAction =
   | { type: 'LOAD_EVENT_DETAILS'; eventDetails: EventDetails }
-  | { type: 'LOAD_INCENTIVES'; incentives: Array<Incentive> };
+  | { type: 'LOAD_INCENTIVES'; incentives: Incentive[] };

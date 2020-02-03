@@ -3,8 +3,8 @@ from unittest import skip
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
-from django.core.urlresolvers import reverse
 from django.test import TestCase
+from django.urls import reverse
 
 from tracker import randgen, models
 
@@ -134,11 +134,6 @@ class TestAdminViews(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Select which bid to use as the template')
-
-    def test_show_completed_bids(self):
-        self.client.force_login(self.superuser)
-        response = self.client.get(reverse('admin:show_completed_bids'))
-        self.assertEqual(response.status_code, 200)
 
     def test_process_pending_bids(self):
         self.client.force_login(self.superuser)

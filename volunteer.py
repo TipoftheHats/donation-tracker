@@ -1,13 +1,13 @@
 import csv
 
-from django.core.urlresolvers import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.auth.tokens import default_token_generator
 from django.db import transaction
+from django.urls import reverse
 
-from tracker import viewutil
 from tracker import auth
+from tracker import viewutil
 
 AuthUser = get_user_model()
 
@@ -95,11 +95,12 @@ def send_volunteer_mail(
         try:
             with transaction.atomic():
                 user, created = AuthUser.objects.get_or_create(
-                    email=volunteer.email,
+                    email__iexact=volunteer.email,
                     defaults=dict(
                         username=volunteer.username,
                         first_name=volunteer.firstname,
                         last_name=volunteer.lastname,
+                        email=volunteer.email,
                         is_active=False,
                     ),
                 )

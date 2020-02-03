@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useCallback, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 import * as CurrencyUtils from '../../../public/util/currency';
@@ -12,7 +12,6 @@ import Markdown from '../../../uikit/Markdown';
 import Text from '../../../uikit/Text';
 import useDispatch from '../../hooks/useDispatch';
 import * as EventActions from '../../events/EventActions';
-import { SWEEPSTAKES_URL } from '../../events/EventConstants';
 import * as EventStore from '../../events/EventStore';
 import RouterUtils, { Routes } from '../../router/RouterUtils';
 import { StoreState } from '../../Store';
@@ -84,6 +83,8 @@ const Prize = (props: PrizeProps) => {
   const { prizeId } = props;
   const now = TimeUtils.getNowLocal();
 
+  const [prizeError, setPrizeError] = useState(false);
+  const setPrizeErrorTrue = useCallback(() => setPrizeError(true), []);
   const dispatch = useDispatch();
   const { event, eventId, prize } = useSelector((state: StoreState) => {
     const prize = PrizeStore.getPrize(state, { prizeId });
@@ -124,7 +125,7 @@ const Prize = (props: PrizeProps) => {
     );
 
   const prizeDetails = getPrizeDetails(prize);
-  const prizeImage = PrizeUtils.getPrimaryImage(prize);
+  const prizeImage = prizeError ? null : PrizeUtils.getPrimaryImage(prize);
 
   const handleBack = () => {
     RouterUtils.navigateTo(Routes.EVENT_PRIZES(prize.eventId));
@@ -135,7 +136,7 @@ const Prize = (props: PrizeProps) => {
       <div className={styles.container}>
         <div className={styles.gallery}>
           {prizeImage != null ? (
-            <img className={styles.image} src={prizeImage} />
+            <img alt={prize.public} onError={setPrizeErrorTrue} className={styles.image} src={prizeImage} />
           ) : (
             <div className={styles.noImage}>
               <Header size={Header.Sizes.H4} color={Header.Colors.MUTED}>
@@ -199,12 +200,14 @@ const Prize = (props: PrizeProps) => {
         </div>
       </div>
 
-      <div className={styles.disclaimers}>
-        <Text>
-          No donation necessary for a chance to win. See <Anchor href={SWEEPSTAKES_URL}>sweepstakes rules</Anchor> for
-          details and instructions.
-        </Text>
-      </div>
+      {window.SWEEPSTAKES_URL && (
+        <div className={styles.disclaimers}>
+          <Text>
+            No donation necessary for a chance to win. See{' '}
+            <Anchor href={window.SWEEPSTAKES_URL}>sweepstakes rules</Anchor> for details and instructions.
+          </Text>
+        </div>
+      )}
     </Container>
   );
 };

@@ -15,6 +15,8 @@ import PrizeCard from './PrizeCard';
 import { Prize } from '../PrizeTypes';
 
 import styles from './Prizes.mod.css';
+import Text from '../../../uikit/Text';
+import Anchor from '../../../uikit/Anchor';
 
 // The limit of how many prizes should be included in sections that appear
 // above the All Prizes section. This generally avoids showing prizes multiple
@@ -23,7 +25,7 @@ import styles from './Prizes.mod.css';
 const FEATURED_SECTION_LIMIT = 6;
 
 type PrizeGridProps = {
-  prizes: Array<Prize>;
+  prizes: Prize[];
   name: string;
 };
 
@@ -56,8 +58,7 @@ const Prizes = (props: PrizesProps) => {
 
   const [loadingPrizes, setLoadingPrizes] = React.useState(false);
 
-  const { availableNow, closingPrizes, allPrizes, event } = useSelector((state: StoreState) => ({
-    availableNow: PrizeStore.getPrizesOpeningSoon(state, { targetTime: now }).slice(0, FEATURED_SECTION_LIMIT),
+  const { closingPrizes, allPrizes, event } = useSelector((state: StoreState) => ({
     closingPrizes: PrizeStore.getPrizesClosingSoon(state, { targetTime: now }).slice(0, FEATURED_SECTION_LIMIT),
     allPrizes: PrizeStore.getSortedPrizes(state),
     event: EventStore.getEvent(state, { eventId }),
@@ -88,17 +89,19 @@ const Prizes = (props: PrizesProps) => {
       <Header size={Header.Sizes.H1} className={styles.pageHeader}>
         Prizes for <span className={styles.eventName}>{event.name}</span>
       </Header>
+      {window.SWEEPSTAKES_URL && (
+        <div style={{ textAlign: 'center' }}>
+          <Text size={Text.Sizes.SIZE_12}>
+            No donation necessary for a chance to win. See{' '}
+            <Anchor href={window.SWEEPSTAKES_URL}>sweepstakes rules</Anchor> for details and instructions.
+          </Text>
+        </div>
+      )}
       {!loadingPrizes ? (
         <React.Fragment>
           {closingPrizes.length > 0 && (
             <React.Fragment>
               <PrizeGrid prizes={closingPrizes} name="Closing Soon!" />
-              <hr className={styles.divider} />
-            </React.Fragment>
-          )}
-          {availableNow.length > 0 && (
-            <React.Fragment>
-              <PrizeGrid prizes={availableNow} name="Available Now" />
               <hr className={styles.divider} />
             </React.Fragment>
           )}

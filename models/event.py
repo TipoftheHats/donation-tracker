@@ -6,6 +6,7 @@ import post_office.models
 import pytz
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_slug
 from django.db import models
 from django.db.models import signals
 from django.dispatch import receiver
@@ -35,8 +36,18 @@ class EventManager(models.Manager):
 
 class Event(models.Model):
     objects = EventManager()
-    short = models.CharField(max_length=64, unique=True)
+    short = models.CharField(
+        max_length=64,
+        unique=True,
+        help_text='This must be unique, as it is used for slugs.',
+        validators=[validate_slug],
+    )
     name = models.CharField(max_length=128)
+    hashtag = models.CharField(
+        max_length=32,
+        help_text='Normally you can use the short id for this, but this value can override it.',
+        blank=True,
+    )
     use_one_step_screening = models.BooleanField(
         default=True,
         verbose_name='Use One-Step Screening',
@@ -50,6 +61,7 @@ class Event(models.Model):
         max_digits=20,
         validators=[positive, nonzero],
         verbose_name='Target Amount',
+        default=0,
     )
     minimumdonation = models.DecimalField(
         decimal_places=2,
@@ -129,6 +141,7 @@ class Event(models.Model):
         blank=True,
         verbose_name='Prize Coordinator',
         help_text='The person responsible for managing prize acceptance/distribution',
+        on_delete=models.PROTECT,
     )
     allowed_prize_countries = models.ManyToManyField(
         'Country',
@@ -158,6 +171,7 @@ class Event(models.Model):
         verbose_name='Prize Contributor Accept/Deny Email Template',
         help_text="Email template to use when responding to prize contributor's submission requests",
         related_name='event_prizecontributortemplates',
+        on_delete=models.SET_NULL,
     )
     prizewinneremailtemplate = models.ForeignKey(
         post_office.models.EmailTemplate,
@@ -167,6 +181,7 @@ class Event(models.Model):
         verbose_name='Prize Winner Email Template',
         help_text='Email template to use when someone wins a prize.',
         related_name='event_prizewinnertemplates',
+        on_delete=models.SET_NULL,
     )
     prizewinneracceptemailtemplate = models.ForeignKey(
         post_office.models.EmailTemplate,
@@ -176,6 +191,7 @@ class Event(models.Model):
         verbose_name='Prize Accepted Email Template',
         help_text='Email template to use when someone accepts a prize (and thus it needs to be shipped).',
         related_name='event_prizewinneraccepttemplates',
+        on_delete=models.SET_NULL,
     )
     prizeshippedemailtemplate = models.ForeignKey(
         post_office.models.EmailTemplate,
@@ -185,6 +201,7 @@ class Event(models.Model):
         verbose_name='Prize Shipped Email Template',
         help_text='Email template to use when the aprize has been shipped to its recipient).',
         related_name='event_prizeshippedtemplates',
+        on_delete=models.SET_NULL,
     )
 
     def __str__(self):
@@ -348,7 +365,7 @@ class SpeedRun(models.Model):
         return reverse('tracker:run', args=(self.id,))
 
     def natural_key(self):
-        return (self.name, self.event.natural_key())
+        return self.name, self.event.natural_key()
 
     def clean(self):
         if not self.name:
@@ -428,11 +445,11 @@ class SpeedRun(models.Model):
         return [self]
 
     def name_with_category(self):
-        categoryString = ' ' + self.category if self.category else ''
-        return '{0}{1}'.format(self.name, categoryString)
+        category_string = f' {self.category}' if self.category else ''
+        return f'{self.name}{category_string}'
 
     def __str__(self):
-        return '{0} ({1})'.format(self.name_with_category(), self.event)
+        return f'{self.name_with_category()} (event_id: {self.event_id})'
 
 
 class Runner(models.Model):
@@ -469,7 +486,9 @@ class Runner(models.Model):
         help_text='Streaming Platforms',
     )
     pronouns = models.CharField(max_length=20, blank=True, help_text='They/Them')
-    donor = models.OneToOneField('tracker.Donor', blank=True, null=True)
+    donor = models.OneToOneField(
+        'tracker.Donor', blank=True, null=True, on_delete=models.SET_NULL
+    )
 
     def validate_unique(self, exclude=None):
         case_insensitive = Runner.objects.filter(name__iexact=self.name)
@@ -506,15 +525,15 @@ class Submission(models.Model):
         app_label = 'tracker'
 
     external_id = models.IntegerField(primary_key=True)
-    run = models.ForeignKey('SpeedRun')
-    runner = models.ForeignKey('Runner')
+    run = models.ForeignKey('SpeedRun', on_delete=models.CASCADE)
+    runner = models.ForeignKey('Runner', on_delete=models.CASCADE)
     game_name = models.CharField(max_length=64)
     category = models.CharField(max_length=64)
     console = models.CharField(max_length=32)
     estimate = TimestampField(always_show_h=True)
 
     def __str__(self):
-        return '%s (%s) by %s' % (self.game_name, self.category, self.runner)
+        return f'{self.game_name} ({self.category}) by {self.runner}'
 
     def save(self, *args, **kwargs):
         super(Submission, self).save(*args, **kwargs)

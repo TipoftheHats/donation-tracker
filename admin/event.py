@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 
 import tracker.models.fields
-from tracker import models, filters, forms, viewutil
+from tracker import models, search_filters, forms, viewutil
 from .filters import RunListFilter
 from .forms import (
     EventForm,
@@ -39,6 +39,7 @@ class EventAdmin(CustomModelAdmin):
                 'fields': [
                     'short',
                     'name',
+                    'hashtag',
                     'receivername',
                     'targetamount',
                     'use_one_step_screening',
@@ -514,7 +515,20 @@ class SpeedRunAdmin(CustomModelAdmin):
         return render(
             request,
             'admin/generic_form.html',
-            dict(title='Set start time for %s' % run, form=form, action=request.path,),
+            {
+                'site_header': 'Donation Tracker',
+                'title': 'Set start time for %s' % run,
+                'breadcrumbs': (
+                    (
+                        reverse('admin:app_list', kwargs=dict(app_label='tracker')),
+                        'Tracker',
+                    ),
+                    (reverse('admin:tracker_speedrun_changelist'), 'Speedruns'),
+                    (None, 'Start Run'),
+                ),
+                'form': form,
+                'action': request.path,
+            },
         )
 
     def get_queryset(self, request):
@@ -524,7 +538,7 @@ class SpeedRunAdmin(CustomModelAdmin):
             params['locked'] = False
         if event:
             params['event'] = event.id
-        return filters.run_model_query('run', params, user=request.user, mode='admin')
+        return search_filters.run_model_query('run', params, user=request.user)
 
     def get_urls(self):
         return super(SpeedRunAdmin, self).get_urls() + [

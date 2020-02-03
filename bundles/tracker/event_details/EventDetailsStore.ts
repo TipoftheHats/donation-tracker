@@ -21,12 +21,12 @@ export const getIncentive = createSelector(
 
 export const getTopLevelIncentives = createSelector(
   [getIncentives],
-  incentives => incentives.filter(incentive => !incentive.parent),
+  incentives => incentives.filter(incentive => !incentive.parent).sort((a, b) => a.order - b.order),
 );
 
 export const getChildIncentives = createSelector(
   [getIncentives, (_: StoreState, incentiveId: number) => incentiveId],
-  (incentives, parentId): Array<Incentive> => {
+  (incentives, parentId): Incentive[] => {
     if (parentId == null) return [];
     return incentives.filter(incentive => incentive.parent && incentive.parent.id === parentId);
   },

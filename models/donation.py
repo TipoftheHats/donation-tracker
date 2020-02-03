@@ -4,11 +4,12 @@ from functools import reduce
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Count, Sum, Max, Avg
 from django.db.models import signals
+from django.db.models.functions import Coalesce
 from django.dispatch import receiver
+from django.urls import reverse
 from django.utils import timezone
 
 from .fields import OneToOneOrNoneField
@@ -185,6 +186,10 @@ class Donation(models.Model):
         get_latest_by = 'timereceived'
         ordering = ['-timereceived']
 
+    @property
+    def donor_cache(self):
+        return self.donor.cache_for(self.event_id)
+
     def get_absolute_url(self):
         return reverse('tracker:donation', args=(self.id,))
 
@@ -270,14 +275,8 @@ class Donation(models.Model):
         return self.anonymous() and not self.comment
 
     def __str__(self):
-        return (
-            str(self.donor.visible_name() if self.donor else self.donor)
-            + ' ('
-            + str(self.amount)
-            + ') ('
-            + str(self.timereceived)
-            + ')'
-        )
+        donor_name = self.donor.visible_name() if self.donor else '(Unconfirmed)'
+        return f'{donor_name} ({self.amount}) {self.timereceived}'
 
 
 @receiver(signals.post_save, sender=Donation)
@@ -307,7 +306,7 @@ class Donor(models.Model):
         default='FIRST',
         choices=DonorVisibilityChoices,
     )
-    user = OneToOneOrNoneField(User, null=True, blank=True)
+    user = OneToOneOrNoneField(User, null=True, blank=True, on_delete=models.SET_NULL)
 
     # Address information, yay!
     addresscity = models.CharField(
@@ -323,7 +322,12 @@ class Donor(models.Model):
         max_length=128, blank=True, null=False, verbose_name='Zip/Postal Code'
     )
     addresscountry = models.ForeignKey(
-        'Country', null=True, blank=True, default=None, verbose_name='Country'
+        'Country',
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name='Country',
+        on_delete=models.PROTECT,
     )
 
     # Donor specific info
@@ -354,46 +358,31 @@ class Donor(models.Model):
         if not self.alias:
             self.alias = None
         if self.visibility == 'ALIAS' and not self.alias:
-            raise ValidationError(
-                "Cannot set Donor visibility to 'Alias Only' without an alias"
-            )
+            self.visibility = 'ANON'
         if not self.paypalemail:
             self.paypalemail = None
 
-    def contact_name(self):
-        if self.firstname:
-            return self.firstname + ' ' + self.lastname
-        if self.alias:
-            return self.alias
-        return self.email
-
     ANONYMOUS = '(Anonymous)'
+
+    def cache_for(self, event_id=None):
+        # avoid breaking prefetch
+        return next((dc for dc in self.cache.all() if dc.event_id == event_id), None)
 
     def visible_name(self):
         if self.visibility == 'ANON':
             return Donor.ANONYMOUS
         elif self.visibility == 'ALIAS':
-            return self.alias or '(No Name)'
+            return self.alias or Donor.ANONYMOUS
         last_name, first_name = self.lastname, self.firstname
         if not last_name and not first_name:
             return self.alias or '(No Name)'
         if self.visibility == 'FIRST':
             last_name = last_name[:1] + '...'
-        return (
-            last_name
-            + ', '
-            + first_name
-            + ('' if self.alias is None else ' (' + self.alias + ')')
-        )
+        alias = f' ({self.alias})' if self.alias else ''
+        return f'{last_name}, {first_name}{alias}'
 
-    def full(self):
-        return str(self.email) + ' (' + str(self) + ')'
-
-    def get_absolute_url(self, event=None):
-        return reverse(
-            'tracker:donor',
-            args=(self.id, event.id) if event and event.id else (self.id,),
-        )
+    def get_absolute_url(self):
+        return reverse('tracker:donor', args=(self.id,),)
 
     def __repr__(self):
         return self.visible_name()
@@ -401,16 +390,14 @@ class Donor(models.Model):
     def __str__(self):
         if not self.lastname and not self.firstname:
             return self.alias or '(No Name)'
-        ret = str(self.lastname) + ', ' + str(self.firstname)
-        if self.alias:
-            ret += ' (' + str(self.alias) + ')'
-        return ret
+        alias = f' ({self.alias})' if self.alias else ''
+        return f'{self.lastname}, {self.firstname}{alias}'
 
 
 class DonorCache(models.Model):
     # null event = all events
-    event = models.ForeignKey('Event', blank=True, null=True)
-    donor = models.ForeignKey('Donor')
+    event = models.ForeignKey('Event', blank=True, null=True, on_delete=models.CASCADE)
+    donor = models.ForeignKey('Donor', on_delete=models.CASCADE, related_name='cache')
     donation_total = models.DecimalField(
         decimal_places=2,
         max_digits=20,
@@ -464,15 +451,15 @@ class DonorCache(models.Model):
         if self.event:
             aggregate = aggregate.filter(event=self.event)
         aggregate = aggregate.aggregate(
-            total=Sum('amount'),
-            count=Count('amount'),
-            max=Max('amount'),
-            avg=Avg('amount'),
+            total=Coalesce(Sum('amount'), 0.0),
+            count=Coalesce(Count('amount'), 0),
+            max=Coalesce(Max('amount'), 0.0),
+            avg=Coalesce(Avg('amount'), 0.0),
         )
-        self.donation_total = aggregate['total'] or 0
-        self.donation_count = aggregate['count'] or 0
-        self.donation_max = aggregate['max'] or 0
-        self.donation_avg = aggregate['avg'] or 0
+        self.donation_total = aggregate['total']
+        self.donation_count = aggregate['count']
+        self.donation_max = aggregate['max']
+        self.donation_avg = aggregate['avg']
 
     def __str__(self):
         return str(self.donor)
@@ -509,8 +496,9 @@ class DonorCache(models.Model):
     def addresscountry(self):
         return self.donor.addresscountry
 
-    def get_absolute_url(self, event=None):
-        return self.donor.get_absolute_url(event)
+    def get_absolute_url(self):
+        args = (self.donor_id, self.event_id,) if self.event_id else (self.donor_id,)
+        return reverse('tracker:donor', args=args)
 
     class Meta:
         app_label = 'tracker'

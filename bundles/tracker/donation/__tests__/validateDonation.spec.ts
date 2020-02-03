@@ -6,7 +6,6 @@ const eventDetails = {
   csrfToken: 'testing',
   receiverName: 'a beneficiary',
   prizesUrl: 'https://example.com/prizes',
-  rulesUrl: 'https://example.com/rules',
   donateUrl: 'https://example.com/donate',
   minimumDonation: 2.0,
   maximumDonation: 100.0,
@@ -22,7 +21,6 @@ describe('validateDonation', () => {
       email: '',
       amount: 75.0,
       comment: '',
-      nameVisibility: 'ANON',
       wantsEmails: 'CURR',
     };
 
@@ -38,7 +36,6 @@ describe('validateDonation', () => {
         email: '',
         amount: undefined,
         comment: '',
-        nameVisibility: 'ANON',
         wantsEmails: 'CURR',
       };
 
@@ -53,7 +50,6 @@ describe('validateDonation', () => {
         email: '',
         amount: eventDetails.minimumDonation - 1,
         comment: '',
-        nameVisibility: 'ANON',
         wantsEmails: 'CURR',
       };
 
@@ -71,7 +67,6 @@ describe('validateDonation', () => {
         email: '',
         amount: eventDetails.maximumDonation + 1,
         comment: '',
-        nameVisibility: 'ANON',
         wantsEmails: 'CURR',
       };
 
@@ -91,11 +86,10 @@ describe('validateDonation', () => {
         email: '',
         amount: eventDetails.minimumDonation + 1,
         comment: '',
-        nameVisibility: 'ANON',
         wantsEmails: 'CURR',
       };
 
-      const bids: Array<Bid> = Array(MAX_BIDS_PER_DONATION + 1).fill({
+      const bids: Bid[] = Array(MAX_BIDS_PER_DONATION + 1).fill({
         incentiveId: 1,
         amount: 2.0,
       });
@@ -114,11 +108,10 @@ describe('validateDonation', () => {
         email: '',
         amount: 10,
         comment: '',
-        nameVisibility: 'ANON',
         wantsEmails: 'CURR',
       };
 
-      const bids: Array<Bid> = Array(3).fill({
+      const bids: Bid[] = Array(3).fill({
         incentiveId: 1,
         amount: 10,
       });
@@ -139,7 +132,6 @@ describe('validateDonation', () => {
         email: 'notavalidemail',
         amount: 10,
         comment: '',
-        nameVisibility: 'ANON',
         wantsEmails: 'CURR',
       };
 

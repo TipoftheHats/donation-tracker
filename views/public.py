@@ -1,3 +1,17 @@
+import json
+
+import django.core.paginator as paginator
+from django.db.models import Count, Sum, Max, Avg, F, FloatField
+from django.db.models.functions import Coalesce, Cast
+from django.http import (
+    HttpResponse,
+    HttpResponseRedirect,
+)
+from django.urls import reverse
+from django.views.decorators.cache import cache_page
+
+import tracker.search_filters as filters
+import tracker.viewutil as viewutil
 from tracker.models import (
     Bid,
     Donation,
@@ -8,19 +22,7 @@ from tracker.models import (
     PrizeCategory,
     SpeedRun,
 )
-from tracker.forms import PrizeSearchForm, RunSearchForm
 from . import common as views_common
-import tracker.filters as filters
-import tracker.viewutil as viewutil
-
-from django.db.models import Count, Sum, Max, Avg, F
-import django.core.paginator as paginator
-from django.http import HttpResponse, HttpResponseRedirect
-from django.views.decorators.cache import cache_page
-from django.core.urlresolvers import reverse
-from django.core import serializers
-
-import json
 
 __all__ = [
     'eventlist',
@@ -37,7 +39,10 @@ __all__ = [
     'prize',
 ]
 
+from tracker.decorators import no_querystring
 
+
+@no_querystring
 def eventlist(request):
     return views_common.tracker_response(
         request, 'tracker/eventlist.html', {'events': Event.objects.all()}
@@ -54,12 +59,12 @@ def index(request, event=None):
     agg = Donation.objects.filter(
         transactionstate='COMPLETED', testdonation=False, **eventParams
     ).aggregate(
-        amount=Sum('amount'),
+        amount=Cast(Coalesce(Sum('amount'), 0), output_field=FloatField()),
         count=Count('amount'),
-        max=Max('amount'),
-        avg=Avg('amount'),
+        max=Cast(Coalesce(Max('amount'), 0), output_field=FloatField()),
+        avg=Cast(Coalesce(Avg('amount'), 0), output_field=FloatField()),
     )
-    agg['target'] = event.targetamount
+    agg['target'] = float(event.targetamount)
     count = {
         'runs': filters.run_model_query('run', eventParams).count(),
         'prizes': filters.run_model_query('prize', eventParams).count(),
@@ -72,11 +77,7 @@ def index(request, event=None):
 
     if 'json' in request.GET:
         return HttpResponse(
-            json.dumps(
-                {'count': count, 'agg': agg},
-                ensure_ascii=False,
-                cls=serializers.json.DjangoJSONEncoder,
-            ),
+            json.dumps({'count': count, 'agg': agg}, ensure_ascii=False,),
             content_type='application/json;charset=utf-8',
         )
 
@@ -93,13 +94,14 @@ def get_bid_children(bid, bids):
 
 
 def get_bid_ancestors(bid, bids):
-    while bid.parent_id:
-        if bid.parent_id:
-            bid = next(filter(lambda parent: parent.id == bid.parent_id, bids))
-            yield bid
+    parent = bid
+    while parent:
+        parent = next((b for b in bids if parent.parent_id == b.id), None)
+        if parent:
+            yield parent
 
 
-def bid_info(bid, bids, speedrun=None, event=None):
+def bid_info(bid, bids):
     return {
         'id': bid.id,
         'name': bid.name,
@@ -115,6 +117,7 @@ def bid_info(bid, bids, speedrun=None, event=None):
 
 
 @cache_page(60)
+@no_querystring
 def bidindex(request, event=None):
     event = viewutil.get_event(event)
 
@@ -123,11 +126,9 @@ def bidindex(request, event=None):
             reverse('tracker:bidindex', args=(Event.objects.latest().short,))
         )
 
-    bids = Bid.objects.filter(state__in=('OPENED', 'CLOSED')).annotate(
+    bids = Bid.objects.filter(state__in=('OPENED', 'CLOSED'), event=event).annotate(
         speedrun_name=F('speedrun__name'), event_name=F('event__name')
     )
-    if event.id:
-        bids = bids.filter(event=event)
 
     toplevel = [b for b in bids if b.parent_id is None]
     total = sum((b.total for b in toplevel), 0)
@@ -156,58 +157,48 @@ def bidindex(request, event=None):
 
 
 @cache_page(60)
+@no_querystring
 def bid(request, id):
     try:
-        orderdict = {
-            'amount': ('amount',),
-            'time': ('donation__timereceived',),
-        }
-        sort = request.GET.get('sort', 'time')
-
-        if sort not in orderdict:
-            sort = 'time'
-
-        try:
-            order = int(request.GET.get('order', '-1'))
-        except ValueError:
-            order = -1
-
-        bid = (
+        model = (
             Bid.objects.filter(pk=id, state__in=('OPENED', 'CLOSED'))
+            .select_related('event')
             .annotate(speedrun_name=F('speedrun__name'), event_name=F('event__name'))
             .first()
         )
-        if not bid:
+        if not model:
             raise Bid.DoesNotExist
-        event = bid.event
-        bid = bid_info(
-            bid,
-            (bid.get_ancestors() | bid.get_descendants())
+        event = model.event
+        model_info = bid_info(
+            model,
+            (model.get_ancestors() | model.get_descendants())
             .filter(state__in=('OPENED', 'CLOSED'))
             .annotate(speedrun_name=F('speedrun__name'), event_name=F('event__name')),
         )
 
-        if not bid['istarget']:
+        if not model.istarget:
             return views_common.tracker_response(
-                request, 'tracker/bid.html', {'event': event, 'bid': bid}
+                request, 'tracker/bid.html', {'event': event, 'bid': model_info}
             )
         else:
-            donationBids = DonationBid.objects.filter(bid_id=bid['id']).filter(
-                viewutil.DonationBidAggregateFilter
+            donation_bids = (
+                DonationBid.objects.filter(bid=model)
+                .filter(donation__transactionstate='COMPLETED')
+                .select_related('donation')
+                .prefetch_related('donation__donor__cache')
+                .order_by('-donation__timereceived')
             )
-            donationBids = donationBids.select_related(
-                'donation', 'donation__donor'
-            ).order_by('-donation__timereceived')
-            donationBids = views_common.fixorder(donationBids, orderdict, sort, order)
-            comments = 'comments' in request.GET
+
+            comments = []
+            # comments = 'comments' in request.GET # TODO: restore this
             return views_common.tracker_response(
                 request,
                 'tracker/bid.html',
                 {
                     'event': event,
-                    'bid': bid,
+                    'bid': model_info,
                     'comments': comments,
-                    'donationBids': donationBids,
+                    'donation_bids': donation_bids,
                 },
             )
 
@@ -271,6 +262,7 @@ def donorindex(request, event=None):
 
 
 @cache_page(60)
+@no_querystring
 def donor(request, id, event=None):
     try:
         event = viewutil.get_event(event)
@@ -311,6 +303,9 @@ def donationindex(request, event=None):
     }
     page = request.GET.get('page', 1)
     sort = request.GET.get('sort', 'time')
+
+    if sort not in orderdict:
+        sort = 'time'
 
     try:
         order = int(request.GET.get('order', -1))
@@ -389,10 +384,6 @@ def donation(request, id):
 @cache_page(300)
 def runindex(request, event=None):
     event = viewutil.get_event(event)
-    searchForm = RunSearchForm(request.GET)
-
-    if not searchForm.is_valid():
-        return HttpResponse('Invalid Search Data', status=400)
 
     if not event.id:
         return HttpResponseRedirect(
@@ -400,19 +391,13 @@ def runindex(request, event=None):
         )
 
     searchParams = {}
-    searchParams.update(request.GET)
-    searchParams.update(searchForm.cleaned_data)
-
-    if event.id:
-        searchParams['event'] = event.id
+    searchParams['event'] = event.id
 
     runs = filters.run_model_query('run', searchParams)
     runs = runs.annotate(hasbids=Sum('bids'))
 
     return views_common.tracker_response(
-        request,
-        'tracker/runindex.html',
-        {'searchForm': searchForm, 'runs': runs, 'event': event},
+        request, 'tracker/runindex.html', {'runs': runs, 'event': event},
     )
 
 
@@ -445,26 +430,21 @@ def run(request, id):
 @cache_page(1800)
 def prizeindex(request, event=None):
     event = viewutil.get_event(event)
-    searchForm = PrizeSearchForm(request.GET)
 
-    if not searchForm.is_valid():
-        return HttpResponse('Invalid Search Data', status=400)
+    if not event.id:
+        return HttpResponseRedirect(
+            reverse('tracker:prizeindex', args=(Event.objects.latest().short,))
+        )
 
     searchParams = {}
-    searchParams.update(request.GET)
-    searchParams.update(searchForm.cleaned_data)
-
-    if event.id:
-        searchParams['event'] = event.id
+    searchParams['event'] = event.id
 
     prizes = filters.run_model_query('prize', searchParams)
     prizes = prizes.select_related('startrun', 'endrun', 'category').prefetch_related(
         'prizewinner_set'
     )
     return views_common.tracker_response(
-        request,
-        'tracker/prizeindex.html',
-        {'searchForm': searchForm, 'prizes': prizes, 'event': event},
+        request, 'tracker/prizeindex.html', {'prizes': prizes, 'event': event},
     )
 
 

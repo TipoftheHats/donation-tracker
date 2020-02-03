@@ -1,22 +1,15 @@
+import datetime
+
+import pytz
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.test import TransactionTestCase, RequestFactory
 from django.urls import reverse
 
 import tracker.models as models
-
-from django.test import TransactionTestCase, RequestFactory
-
-import datetime
-from unittest import skip
-
-noon = datetime.time(12, 0)
-today = datetime.date.today()
-today_noon = datetime.datetime.combine(today, noon)
-tomorrow = today + datetime.timedelta(days=1)
-tomorrow_noon = datetime.datetime.combine(tomorrow, noon)
-long_ago = today - datetime.timedelta(days=180)
-long_ago_noon = datetime.datetime.combine(long_ago, noon)
+from .util import today_noon
 
 
 class TestSpeedRun(TransactionTestCase):
@@ -68,7 +61,6 @@ class TestSpeedRun(TransactionTestCase):
     def test_no_run_or_setup_time_run_end_time(self):
         self.assertEqual(self.run5.endtime, None)
 
-    @skip("Broken datetime math")
     def test_removing_run_from_schedule(self):
         self.run1.order = None
         self.run1.save()
@@ -210,7 +202,11 @@ class TestSpeedRunAdmin(TransactionTestCase):
         self.factory = RequestFactory()
         self.sessions = SessionMiddleware()
         self.messages = MessageMiddleware()
-        self.event1 = models.Event.objects.create(datetime=today_noon, targetamount=5)
+        self.event1 = models.Event.objects.create(
+            datetime=today_noon,
+            targetamount=5,
+            timezone=pytz.timezone(getattr(settings, 'TIME_ZONE', 'America/Denver')),
+        )
         self.run1 = models.SpeedRun.objects.create(
             name='Test Run 1', run_time='0:45:00', setup_time='0:05:00', order=1
         )

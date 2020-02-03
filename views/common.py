@@ -60,6 +60,7 @@ def tracker_context(request, qdict=None):
             'next': request.POST.get('next', request.GET.get('next', request.path)),
             'starttime': starttime,
             'events': tracker.models.Event.objects.all(),
+            'settings': settings,
         }
     )
     qdict.setdefault('event', viewutil.get_event(None))
@@ -84,7 +85,7 @@ def tracker_response(
                 content_type='application/json;charset=utf-8',
             )
         cache_control = {}
-        if request.user.is_anonymous():
+        if request.user.is_anonymous:
             cache_control['public'] = True
         else:
             resp['X-Render-Time'] = render_time

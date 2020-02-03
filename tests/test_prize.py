@@ -7,20 +7,12 @@ from dateutil.parser import parse as parse_date
 from django.contrib.admin import ACTION_CHECKBOX_NAME
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
-from django.core.urlresolvers import reverse
 from django.test import TestCase
 from django.test import TransactionTestCase
+from django.urls import reverse
 
-from . import MigrationsTestCase
-from .. import models, prizeutil, randgen
-
-noon = datetime.time(12, 0)
-today = datetime.date.today()
-today_noon = datetime.datetime.combine(today, noon).astimezone(pytz.UTC)
-tomorrow = today + datetime.timedelta(days=1)
-tomorrow_noon = datetime.datetime.combine(tomorrow, noon).astimezone(pytz.UTC)
-long_ago = today - datetime.timedelta(days=180)
-long_ago_noon = datetime.datetime.combine(long_ago, noon).astimezone(pytz.UTC)
+from tracker import models, prizeutil, randgen
+from .util import today_noon, MigrationsTestCase
 
 
 class TestPrizeGameRange(TransactionTestCase):
@@ -1256,6 +1248,14 @@ class TestPrizeSignals(TestCase):
         self.assertEqual(self.middle_span_prize.next_run, None)
 
 
+class TestPrizeTimeRange(TestCase):
+    def setUp(self):
+        self.rand = random.Random(None)
+        self.event = randgen.generate_event(self.rand)
+        self.event.save()
+        self.runs = randgen.generate_runs(self.rand, self.event, 4, scheduled=True)
+
+
 class TestPrizeKey(TestCase):
     def setUp(self):
         self.rand = random.Random(None)
@@ -1615,3 +1615,67 @@ class TestPrizeAdmin(TestCase):
             reverse('admin:tracker_prizekey_change', args=(self.prize_key.id,))
         )
         self.assertEqual(response.status_code, 200)
+
+
+class TestPrizeList(TestCase):
+    def setUp(self):
+        self.rand = random.Random(None)
+        self.event = randgen.generate_event(self.rand, start_time=today_noon)
+        self.event.save()
+
+    def test_prize_list(self):
+        regular_prize = randgen.generate_prize(
+            self.rand, event=self.event, maxwinners=2
+        )
+        regular_prize.save()
+        donors = randgen.generate_donors(self.rand, 2)
+        for d in donors:
+            models.PrizeWinner.objects.create(prize=regular_prize, winner=d)
+        key_prize = randgen.generate_prize(self.rand, event=self.event)
+        key_prize.key_code = True
+        key_prize.save()
+        key_winners = randgen.generate_donors(self.rand, 50)
+        prize_keys = randgen.generate_prize_keys(self.rand, 50, prize=key_prize)
+        for w, k in zip(key_winners, prize_keys):
+            k.prize_winner = models.PrizeWinner.objects.create(
+                prize=key_prize, winner=w
+            )
+            k.save()
+
+        response = self.client.get(reverse('tracker:prizeindex', args=(self.event.id,)))
+        self.assertContains(response, donors[0].visible_name())
+        self.assertContains(response, donors[1].visible_name())
+        self.assertContains(response, '50 winner(s)')
+
+
+class TestPrizeWinner(TestCase):
+    def setUp(self):
+        self.rand = random.Random(None)
+        self.event = randgen.generate_event(self.rand, start_time=today_noon)
+        self.event.save()
+        randgen.generate_runs(self.rand, self.event, 1, scheduled=True)
+        self.write_in_prize = randgen.generate_prizes(self.rand, self.event, 1)[0]
+        self.write_in_donor = randgen.generate_donors(self.rand, 1)[0]
+        models.PrizeWinner.objects.create(
+            prize=self.write_in_prize, winner=self.write_in_donor, acceptcount=1
+        )
+        self.donation_prize = randgen.generate_prizes(self.rand, self.event, 1)[0]
+        self.donation_donor = randgen.generate_donors(self.rand, 1)[0]
+        models.Donation.objects.create(
+            event=self.event,
+            donor=self.donation_donor,
+            transactionstate='COMPLETED',
+            amount=5,
+        )
+        models.PrizeWinner.objects.create(
+            prize=self.donation_prize, winner=self.donation_donor, acceptcount=1
+        )
+
+    def test_donor_cache(self):
+        self.assertEqual(
+            self.write_in_prize.get_prize_winner().donor_cache, self.write_in_donor
+        )
+        self.assertEqual(
+            self.donation_prize.get_prize_winner().donor_cache,
+            self.donation_donor.cache_for(self.event.id),
+        )

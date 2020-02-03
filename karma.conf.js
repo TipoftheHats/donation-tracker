@@ -11,19 +11,9 @@ module.exports = function(config) {
         flags: ['--no-sandbox'],
       },
     },
-    files: [
-      'bundles/**/*Spec.js',
-      'bundles/**/*Spec.tsx',
-      'bundles/**/*.spec.tsx',
-      'bundles/**/*.spec.ts',
-      './spec/Suite.tsx',
-    ],
+    files: ['./spec/entry.js'],
     preprocessors: {
-      'bundles/**/*Spec.js': ['webpack'],
-      'bundles/**/*Spec.tsx': ['webpack'],
-      'bundles/**/*.spec.tsx': ['webpack'],
-      'bundles/**/*.spec.ts': ['webpack'],
-      './spec/Suite.tsx': ['webpack'],
+      './spec/entry.js': ['webpack'],
     },
     webpack: {
       ...webpackConfig,

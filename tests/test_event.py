@@ -1,23 +1,17 @@
 import csv
-import datetime
 import io
 import random
 
+import json
 import pytz
+from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.urlresolvers import reverse
 from django.test import TestCase
+from django.urls import reverse
 
-from .. import models
+from tracker import models
+from .util import today_noon, tomorrow_noon, long_ago_noon
 from .. import randgen
-
-noon = datetime.time(12, 0)
-today = datetime.date.today()
-today_noon = datetime.datetime.combine(today, noon)
-tomorrow = today + datetime.timedelta(days=1)
-tomorrow_noon = datetime.datetime.combine(tomorrow, noon)
-long_ago = today - datetime.timedelta(days=180)
-long_ago_noon = datetime.datetime.combine(long_ago, noon)
 
 
 class TestEvent(TestCase):
@@ -43,15 +37,88 @@ class TestEvent(TestCase):
         self.assertEqual(self.run.starttime, self.event.datetime)
 
 
+class TestEventViews(TestCase):
+    def setUp(self):
+        self.event = models.Event.objects.create(
+            targetamount=1, datetime=today_noon, short='short', name='Short'
+        )
+
+    def test_main_index(self):
+        # TODO: make this more than just a smoke test
+        response = self.client.get(reverse('tracker:index_all'))
+        self.assertContains(response, 'All Events')
+
+    def test_json_with_no_donations(self):
+        response = self.client.get(
+            reverse('tracker:index', args=(self.event.id,)), data={'json': ''}
+        )
+        self.assertEqual(
+            json.loads(response.content),
+            {
+                'count': {'bids': 0, 'donors': 0, 'prizes': 0, 'runs': 0},
+                'agg': {
+                    'amount': 0.0,
+                    'avg': 0.0,
+                    'count': 0,
+                    'max': 0.0,
+                    'target': 1.0,
+                },
+            },
+        )
+
+    def test_json_with_only_pending_donations(self):
+        models.Donation.objects.create(event=self.event, amount=5, domainId='123456')
+        response = self.client.get(
+            reverse('tracker:index', args=(self.event.id,)), data={'json': ''}
+        )
+        self.assertEqual(
+            json.loads(response.content),
+            {
+                'count': {'bids': 0, 'donors': 0, 'prizes': 0, 'runs': 0},
+                'agg': {
+                    'amount': 0.0,
+                    'avg': 0.0,
+                    'count': 0,
+                    'max': 0.0,
+                    'target': 1.0,
+                },
+            },
+        )
+
+    def test_json_with_cleared_donations(self):
+        models.Donation.objects.create(
+            event=self.event, amount=5, domainId='123456', transactionstate='COMPLETED'
+        )
+        models.Donation.objects.create(
+            event=self.event, amount=10, domainId='123457', transactionstate='COMPLETED'
+        )
+        response = self.client.get(
+            reverse('tracker:index', args=(self.event.id,)), data={'json': ''}
+        )
+        self.assertEqual(
+            json.loads(response.content),
+            {
+                'count': {'bids': 0, 'donors': 0, 'prizes': 0, 'runs': 0},
+                'agg': {
+                    'amount': 15.0,
+                    'avg': 7.5,
+                    'count': 2,
+                    'max': 10.0,
+                    'target': 1.0,
+                },
+            },
+        )
+
+
 class TestEventAdmin(TestCase):
     def setUp(self):
         self.super_user = User.objects.create_superuser(
             'admin', 'admin@example.com', 'password'
         )
-        timezone = pytz.timezone('America/New_York')
+        timezone = pytz.timezone(settings.TIME_ZONE)
         self.event = models.Event.objects.create(
             targetamount=5,
-            datetime=timezone.localize(today_noon),
+            datetime=today_noon,
             timezone=timezone,
             name='test event',
             short='test',

@@ -1,3 +1,4 @@
+/* eslint-disable */
 
 __BIDS__ = null;
 

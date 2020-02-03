@@ -16,7 +16,7 @@ jobs:
           PYTHON_VERSION: '3.7'
 
     variables:
-      TOPLEVEL_REVISION: 947450932a0f68cb79222f5964aad319f99d9abf
+      TOPLEVEL_REVISION: e170b3970c805b4b0c9cb9167c57c78d62f27dd5
 
     steps:
       - task: UsePythonVersion@0
@@ -30,7 +30,7 @@ jobs:
           cd $(Build.SourcesDirectory)
           git reset --hard $(TOPLEVEL_REVISION)
           mv -v $(Agent.BuildDirectory)/tracker $(Build.SourcesDirectory)
-          cp -v tracker/ci/local.py $(Build.SourcesDirectory)/local.py
+          cp -v tracker/ci/.env.ci $(Build.SourcesDirectory)/.env
         displayName: 'Install toplevel around the tracker'
 
       - task: PythonScript@0
@@ -72,10 +72,8 @@ jobs:
         displayName: 'Install node prerequisites'
 
       - script: |
-          pushd '$(projectRoot)'
-          mkdir db
-          python manage.py migrate tracker
-          python manage.py makemigrations --check --dry-run tracker
+          cd tracker
+          python check_migrations.py
         displayName: 'Check for bad or missing migrations'
 
       - script: |
@@ -84,10 +82,8 @@ jobs:
         displayName: 'Generate webpack manifest'
 
       - script: |
-          pushd '$(projectRoot)'
-          python manage.py test --parallel \
-            --testrunner xmlrunner.extra.djangotestrunner.XMLTestRunner \
-            --no-input
+          cd tracker
+          python runtests.py --parallel --no-input
         displayName: 'Run Django tests'
 
       - task: PublishTestResults@2
