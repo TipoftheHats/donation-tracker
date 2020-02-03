@@ -7,62 +7,7 @@
 {% block nav %}{% endblock %}
 {% block head %}
 
-<style>
-
-td {
-  padding: 5px;
-}
-button {
-  margin: 3px !important;
-}
-thead th {
-  background-color: #4E5D6C !important;
-}
-#comment-filters {
-  margin:auto;
-  width:auto;
-  text-align:center;
-}
-.priority {
-  background-color:rgba(239, 127, 0, 0.45);
-}
-@media (max-width: 1920px) {
-  .donation-comment, .mod-comment {
-    max-width:350px;
-    word-wrap: break-word;
-  }
-  .amount-column {
-    max-width:350px;
-  }
-  .statuscell {
-    max-width:100px;
-  }
- }
-@media (max-width: 1200px) {
-  .donation-comment, .mod-comment {
-    max-width:275px;
-    word-wrap: break-word;
-  }
-  .amount-column {
-    max-width:120px;
-  }
-  .statuscell {
-    max-width:75px;
-  }
-  .button-column {
-    max-width: 120px;
-    text-align:center;
-  }
-  .donor-column {
-    max-width: 200px;
-    word-wrap: break-word;
-  }
- }
-
-
-</style>
-
-<link href="{% static "adminprocessing.css" %}" type="text/css" media="ajax" rel="stylesheet" />
+<link href="{% static "adminprocessing.css" %}" type="text/css" rel="stylesheet" />
 <script src="{% static "adminprocessing.js" %}"></script>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
@@ -117,7 +62,7 @@ function addRow(donation) {
 
   row.append($("<td class='donor-column'>").append(makeAnchor(donation['fields']['donor__public'], trackerAPI.createAdminEditURL('donor', parseInt(donation['fields']['donor'])))));
   row.append($("<td class='amount-column'>").append(makeAnchor(asMoney(donation['fields']['amount']), trackerAPI.createAdminEditURL('donation', id))));
-  row.append($("<td class='donation-comment'>").append(safeHtml(donation['fields']['comment'])));
+  row.append($("<td class='donationcell'>").append(safeHtml(donation['fields']['comment'])));
   row.append($("<td class='mod-comment'>").append(safeHtml(donation['fields']['modcomment'])));
 
   var buttons = $("<td class='button-column'>");

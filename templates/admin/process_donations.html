@@ -7,70 +7,7 @@
 {% block nav %}{% endblock %}
 {% block head %}
 
-<style>
-td {
-  padding: 5px;
-}
-button {
-  margin: 3px !important;
-}
-thead th {
-  background-color: #4E5D6C !important;
-}
-#id_loading {
-  text-align: center;
-}
-
-#show_new_donations {
-  visibility: hidden;
-}
-
-.donation-row.externally-processed {
-  opacity: 0.5;
-  background-color: #95a5a647;
-}
-
-#comment-filters {
-  margin:auto;
-  width:auto;
-  text-align:center;
-}
-@media (max-width: 1920px) {
-  .donation-comment, .mod-comment {
-    max-width:350px;
-    word-wrap: break-word;
-  }
-  .amount-column {
-    max-width:350px;
-  }
-  .statuscell {
-    max-width:100px;
-  }
- }
-@media (max-width: 1200px) {
-  .donation-comment, .mod-comment {
-    max-width:275px;
-    word-wrap: break-word;
-  }
-  .amount-column {
-    max-width:120px;
-  }
-  .statuscell {
-    max-width:75px;
-  }
-  .button-column {
-    max-width: 150px;
-    text-align:center;
-  }
-  .donor-column {
-    max-width: 200px;
-    word-wrap: break-word;
-  }
- }
-
-</style>
-
-<link href="{% static "adminprocessing.css" %}" type="text/css" media="ajax" rel="stylesheet" />
+<link href="{% static "adminprocessing.css" %}" type="text/css" rel="stylesheet" />
 <script src="{% static "adminprocessing.js" %}"></script>
 
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
@@ -101,10 +38,10 @@ var pendingDonations = [];
 
 /*
  * Used to store the IDs of donations we've already fetched, which we will use to
- * determine if a donation has been handled by another person upon autorefresh 
+ * determine if a donation has been handled by another person upon autorefresh
  * (because its ID will not be present in a search).
  */
-var processedDonationIDs = []; 
+var processedDonationIDs = [];
 
 
 function getLanguageCookie() {
@@ -140,13 +77,13 @@ function setLoadingMessageDisplay(show) {
 }
 
 function toggleAutoRefresh() {
-  if(autoRefreshEnabled) 
+  if(autoRefreshEnabled)
   {
     $(autoRefreshToggleElem).text("Start Auto-Refresh");
     $(refreshButtonElem).removeAttr("disabled");
     clearTimeout(autoRefreshTimeoutHandle);
   }
-  else 
+  else
   {
     $(autoRefreshToggleElem).text("Stop Auto-Refresh");
     $(refreshButtonElem).attr("disabled", "disabled");
@@ -253,7 +190,7 @@ function getSearchParams() {
 
   };
 
-  {% if user_can_approve and not current_event.use_one_step_screening %}
+  {% if user_can_approve and not currentEvent.use_one_step_screening %}
     if( $("#id_process_mode").val() === 'confirm' ) {
       searchParams['readstate'] = 'FLAGGED';
     } else {
@@ -287,7 +224,7 @@ function autoRefresh() {
     //Compute this here before we disable rows so that we don't remove + add in the same update
     //This is to prevent the view from updating without any visual warning
     var anyUnprocessedBeforeUpdate = anyUnprocessedDonationsInDOM();
-    
+
     partition = partitioner.getPartition();
 
     var donations = JSON.parse(responseText);
@@ -322,7 +259,7 @@ function autoRefresh() {
       pendingDonations.push(donation);
     });
 
-    //If there are any unprocessed donations on the page, queue these donations up. 
+    //If there are any unprocessed donations on the page, queue these donations up.
     //Otherwise, we can safely add/remove elements into the DOM, because we don't need to worry
     //about messing up someone's view, because they won't be trying to click something.
     if(anyUnprocessedBeforeUpdate || anyUnprocessedDonationsInDOM())
@@ -385,7 +322,7 @@ function runSearch() {
         return donation["pk"] % partition[1] == (partition[0] - 1) && (language == 'all' || donation['fields']["commentlanguage"] == language);
       });
 
-      for (var i in donations) { 
+      for (var i in donations) {
         addRow(donations[i]);
       }
 
@@ -419,11 +356,11 @@ function runSearch() {
     <option value="un">Unknown</option>
   </select>
 
-  {% if not current_event.use_one_step_screening and user_can_approve %}
+  {% if user_can_approve and not currentEvent.use_one_step_screening %}
   <label>Processing Mode</label>
   <select id="id_process_mode">
-    <option value="normal">Regular</option>
     <option value="confirm">Confirmation</option>
+    <option value="normal">Regular</option>
   </select>
   {% endif %}
 

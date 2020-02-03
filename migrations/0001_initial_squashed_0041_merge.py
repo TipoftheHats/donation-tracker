@@ -174,6 +174,7 @@ def f0026_migrate_from_country_code(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    initial = True
 
     dependencies = [
         ('post_office', '__first__'),
@@ -668,6 +669,7 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             code=f0006_fill_in_order_column,
             reverse_code=f0006_clear_order_column,
+            elidable=True,
         ),
         migrations.AddField(
             model_name='submission',
@@ -711,7 +713,7 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             code=f0013_populate_prize_contributors,
-            reverse_code=f0013_read_back_prize_contributors,
+            elidable=True,
         ),
         migrations.RemoveField(
             model_name='prize',
@@ -813,6 +815,7 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             code=f0023_copy_over_display_name,
+            elidable=True,
         ),
         migrations.AddField(
             model_name='prize',
@@ -826,6 +829,7 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             code=f0024_write_existing_providers,
+            elidable=True,
         ),
         migrations.AddField(
             model_name='event',
@@ -848,6 +852,7 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             code=f0026_add_countries,
+            elidable=True,
         ),
         migrations.RenameField(
             model_name='donor',
@@ -862,6 +867,7 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             code=f0026_migrate_to_country_code,
             reverse_code=f0026_migrate_from_country_code,
+            elidable=True,
         ),
         migrations.RemoveField(
             model_name='donor',

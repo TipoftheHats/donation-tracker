@@ -82,7 +82,7 @@ _GeneralFields = {
     'prizeentry': ['prize', 'donor'],
     'run': ['name', 'description'],
     'log': ['category', 'message', 'event'],
-    'runner': ['name', 'stream', 'twitter', 'youtube','platform','pronouns'],
+    'runner': ['name', 'stream', 'twitter', 'youtube', 'platform', 'pronouns'],
 }
 
 _SpecificFields = {
@@ -665,7 +665,7 @@ def run_model_query(model, params={}, user=None, mode='user'):
     if 'feed' in params:
         filtered = apply_feed_filter(filtered, model, params['feed'], params, user=user)
 
-    return filtered
+    return filtered.distinct()
 
 
 def user_restriction_filter(model):
@@ -689,8 +689,8 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
             callParams = {'donations': query}
             if 'delta' in params:
                 callParams['delta'] = timedelta(minutes=int(params['delta']))
-            if 'offset' in params:
-                callParams['queryOffset'] = default_time(params['offset'])
+            if 'time' in params:
+                callParams['queryOffset'] = default_time(params['time'])
             if 'maxDonations' in params:
                 callParams['maxDonations'] = int(params['maxDonations'])
             if 'minDonations' in params:
@@ -731,8 +731,8 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
             if noslice:
                 callParams['maxRuns'] = None
                 callParams['minRuns'] = None
-            if 'offset' in params:
-                callParams['queryOffset'] = default_time(params['offset'])
+            if 'time' in params:
+                callParams['queryOffset'] = default_time(params['time'])
             query = query.filter(state='OPENED').filter(
                 upcomming_bid_filter(**callParams)
             )
@@ -747,8 +747,8 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
                 callParams['minRuns'] = None
             if 'delta' in params:
                 callParams['delta'] = timedelta(minutes=int(params['delta']))
-            if 'offset' in params:
-                callParams['queryOffset'] = default_time(params['offset'])
+            if 'time' in params:
+                callParams['queryOffset'] = default_time(params['time'])
             query = query.filter(future_bid_filter(**callParams))
         elif feedName == 'completed':
             query = get_completed_bids(query)
@@ -764,8 +764,8 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
             if noslice:
                 callParams['maxRuns'] = None
                 callParams['minRuns'] = None
-            if 'offset' in params:
-                callParams['queryOffset'] = default_time(params['offset'])
+            if 'time' in params:
+                callParams['queryOffset'] = default_time(params['time'])
             query = get_upcomming_runs(**callParams)
         elif feedName == 'future':
             if 'maxRuns' in params:
@@ -777,14 +777,14 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
                 callParams['minRuns'] = None
             if 'delta' in params:
                 callParams['delta'] = timedelta(minutes=int(params['delta']))
-            if 'offset' in params:
-                callParams['queryOffset'] = default_time(params['offset'])
+            if 'time' in params:
+                callParams['queryOffset'] = default_time(params['time'])
             query = get_future_runs(**callParams)
     elif model == 'prize':
         if feedName == 'current':
             callParams = {}
-            if 'offset' in params:
-                callParams['queryOffset'] = default_time(params['offset'])
+            if 'time' in params:
+                callParams['queryOffset'] = default_time(params['time'])
             query = query.filter(current_prizes_filter(**callParams))
         elif feedName == 'future':
             callParams = {}
@@ -797,8 +797,8 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
                 callParams['minRuns'] = None
             if 'delta' in params:
                 callParams['delta'] = timedelta(minutes=int(params['delta']))
-            if 'offset' in params:
-                callParams['queryOffset'] = default_time(params['offset'])
+            if 'time' in params:
+                callParams['queryOffset'] = default_time(params['time'])
             x = upcomming_prizes_filter(**callParams)
             query = query.filter(x)
         elif feedName == 'won':
@@ -812,6 +812,6 @@ def apply_feed_filter(query, model, feedName, params, user=None, noslice=False):
             query = query.filter(bid__state='CLOSED')
     elif model == 'event':
         if feedName == 'future':
-            offsettime = default_time(params.get('offset', None))
+            offsettime = default_time(params.get('time', None))
             query = query.filter(datetime__gte=offsettime)
     return query

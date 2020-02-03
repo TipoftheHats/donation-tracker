@@ -11,10 +11,11 @@ from django.db.models import Sum, Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-import tracker.util as util
-from .event import LatestEvent, TimestampField
-from ..models import Event, Donation, SpeedRun
-from ..validators import positive, nonzero
+from tracker import util
+from tracker.models import Event, Donation, SpeedRun
+from tracker.validators import positive, nonzero
+from .fields import TimestampField
+from .util import LatestEvent
 
 __all__ = [
     'Prize',
@@ -65,7 +66,7 @@ class Prize(models.Model):
     minimumbid = models.DecimalField(
         decimal_places=2,
         max_digits=20,
-        default=Decimal('5.0'),
+        default=Decimal('5.00'),
         verbose_name='Minimum Bid',
         validators=[positive, nonzero],
     )
@@ -74,7 +75,7 @@ class Prize(models.Model):
         max_digits=20,
         null=True,
         blank=True,
-        default=Decimal('5.0'),
+        default=Decimal('5.00'),
         verbose_name='Maximum Bid',
         validators=[positive, nonzero],
     )
@@ -187,6 +188,9 @@ class Prize(models.Model):
     def natural_key(self):
         return (self.name, self.event.natural_key())
 
+    def get_absolute_url(self):
+        return reverse('tracker:prize', args=(self.id,))
+
     def __str__(self):
         return str(self.name)
 
@@ -226,21 +230,14 @@ class Prize(models.Model):
             raise ValidationError(
                 {'starttime': 'Cannot have both Start/End Run and Start/End Time set'}
             )
-        if self.randomdraw:
-            if self.maximumbid is not None and self.maximumbid < self.minimumbid:
-                raise ValidationError(
-                    {'maximumbid': 'Maximum Bid cannot be lower than Minimum Bid'}
-                )
-            if not self.sumdonations and self.maximumbid != self.minimumbid:
-                raise ValidationError(
-                    {
-                        'maximumbid': 'Maximum Bid cannot differ from Minimum Bid if Sum Donations is not checked'
-                    }
-                )
         if self.image and self.imagefile:
             raise ValidationError(
                 {'image': 'Cannot have both an Image URL and an Image File'}
             )
+
+    def save(self, *args, **kwargs):
+        self.maximumbid = self.minimumbid
+        super(Prize, self).save(*args, **kwargs)
 
     def eligible_donors(self):
         donationSet = Donation.objects.filter(

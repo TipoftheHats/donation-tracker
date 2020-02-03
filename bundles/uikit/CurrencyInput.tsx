@@ -2,13 +2,9 @@ import * as React from 'react';
 import classNames from 'classnames';
 import ReactNumeric from 'react-numeric';
 
-import * as CurrencyUtils from '../public/util/currency';
 import InputWrapper, { InputWrapperPassthroughProps } from './InputWrapper';
-import Text from './Text';
 
 import styles from './CurrencyInput.mod.css';
-
-function prettifyCurrency() {}
 
 type CurrencyInputProps = InputWrapperPassthroughProps & {
   value?: number;
@@ -61,6 +57,8 @@ const CurrencyInput = (props: CurrencyInputProps) => {
       size={size}>
       <ReactNumeric
         className={styles.input}
+        id={name}
+        name={name}
         value={value}
         placeholder={placeholder}
         onInvalidPaste="clamp"
@@ -68,6 +66,7 @@ const CurrencyInput = (props: CurrencyInputProps) => {
         maximumValue={hasMax ? Number.MAX_SAFE_INTEGER.toFixed() : max.toFixed(2)}
         onChange={handleChange}
         disabled={disabled}
+        data-testid={name}
         {...inputProps}
       />
     </InputWrapper>

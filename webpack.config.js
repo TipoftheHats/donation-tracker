@@ -19,7 +19,7 @@ module.exports = {
   mode: PROD ? 'production' : 'development',
   entry: {
     admin: './bundles/admin',
-    donate: './bundles/donate',
+    tracker: './bundles/tracker',
   },
   output: {
     filename: PROD ? 'tracker-[name]-[hash].js' : 'tracker-[name].js',
@@ -104,7 +104,7 @@ module.exports = {
     : {
         proxy: [
           {
-            context: ['/admin', '/logout', '/api', '/ui', '/static', '/tracker', '/donate'],
+            context: ['/admin', '/logout', '/api', '/ui', '/static', '/tracker', '/donate', '/media'],
             target: 'http://localhost:8000/',
             headers: { 'X-Webpack': 1 },
           },

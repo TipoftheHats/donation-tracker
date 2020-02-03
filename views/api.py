@@ -1,7 +1,7 @@
+import collections
 import json
 
-import collections
-
+from django.conf import settings
 import django.core.serializers as serializers
 from django.contrib import admin
 from django.contrib.auth.decorators import user_passes_test
@@ -21,7 +21,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 
 from . import commands
-from .. import filters, viewutil, prizeutil, logutil
+from tracker import filters, viewutil, prizeutil, logutil
 from ..models import (
     Bid,
     Donation,
@@ -35,6 +35,7 @@ from ..models import (
     Runner,
     Country,
 )
+from ..serializers import TrackerSerializer
 
 site = admin.site
 
@@ -53,6 +54,7 @@ __all__ = [
 
 modelmap = {
     'bid': Bid,
+    'bidtarget': Bid,  # TODO: remove this, special filters should not be top level types
     'donationbid': DonationBid,
     'donation': Donation,
     'donor': Donor,
@@ -178,6 +180,9 @@ class Filters:
             del fields['tech_notes']
 
 
+DEFAULT_PAGINATION_LIMIT = 500
+
+
 @never_cache
 def search(request):
     authorizedUser = request.user.has_perm('tracker.can_search')
@@ -185,6 +190,9 @@ def search(request):
     try:
         searchParams = viewutil.request_params(request)
         searchtype = searchParams['type']
+        Model = modelmap.get(searchtype, None)
+        if Model is None:
+            raise KeyError('%s is not a recognized model type' % searchtype)
         qs = filters.run_model_query(
             searchtype,
             searchParams,
@@ -196,9 +204,15 @@ def search(request):
         if searchtype in defer:
             qs = qs.defer(*defer[searchtype])
         qs = qs.annotate(**viewutil.ModelAnnotations.get(searchtype, {}))
-        if qs.count() > 1000:
-            qs = qs[:1000]
-        jsonData = json.loads(serializers.serialize('json', qs, ensure_ascii=False))
+
+        offset = int(searchParams.get('offset', 0))
+        limit = getattr(settings, 'TRACKER_PAGINATION_LIMIT', DEFAULT_PAGINATION_LIMIT)
+        limit = min(limit, int(searchParams.get('limit', limit)))
+        qs = qs[offset : (offset + limit)]
+
+        jsonData = json.loads(
+            TrackerSerializer(Model, request).serialize(qs, ensure_ascii=False)
+        )
         objs = dict([(o.id, o) for o in qs])
         for o in jsonData:
             baseObj = objs[int(o['pk'])]
@@ -257,8 +271,7 @@ def search(request):
             status=400,
             content_type='application/json;charset=utf-8',
         )
-    except KeyError as e:
-        print(e)
+    except KeyError:
         return HttpResponse(
             json.dumps(
                 {'error': 'Key Error, malformed search parameters'}, ensure_ascii=False
