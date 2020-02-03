@@ -30,6 +30,37 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
+            name='Country',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(help_text='Official ISO 3166 name for the country', max_length=64, unique=True)),
+                ('alpha2', models.CharField(help_text='ISO 3166-1 Two-letter code', max_length=2, unique=True, validators=[django.core.validators.RegexValidator(message='Country Alpha-2 code must be exactly 2 uppercase alphabetic characters', regex='^[A-Z]{2}$')])),
+                ('alpha3', models.CharField(help_text='ISO 3166-1 Three-letter code', max_length=3, unique=True, validators=[django.core.validators.RegexValidator(message='Country Alpha-3 code must be exactly 3 uppercase alphabetic characters', regex='^[A-Z]{3}$')])),
+                ('numeric', models.CharField(blank=True, help_text='ISO 3166-1 numeric code', max_length=3, null=True, unique=True, validators=[django.core.validators.RegexValidator(message='Country Numeric code must be exactly 3 digits', regex='^\\\\d{3}$')])),
+            ],
+            options={
+                'ordering': ('alpha2',),
+                'permissions': (('can_edit_countries', 'Can edit countries'),),
+                'verbose_name_plural': 'countries',
+            },
+        ),
+        migrations.CreateModel(
+            name='CountryRegion',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(max_length=128)),
+                ('country', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='tracker.Country')),
+            ],
+            options={
+                'ordering': ('country', 'name'),
+                'verbose_name': 'country region',
+            },
+        ),
+        migrations.AlterUniqueTogether(
+            name='countryregion',
+            unique_together=set([('name', 'country')]),
+        ),
+        migrations.CreateModel(
             name='Bid',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -630,21 +661,6 @@ class Migration(migrations.Migration):
             name='minimumdonation',
             field=models.DecimalField(decimal_places=2, default=Decimal('1.00'), help_text='Enforces a minimum donation amount on the donate page.', max_digits=20, validators=[tracker.validators.positive, tracker.validators.nonzero], verbose_name='Minimum Donation'),
         ),
-        migrations.CreateModel(
-            name='Country',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(help_text='Official ISO 3166 name for the country', max_length=64, unique=True)),
-                ('alpha2', models.CharField(help_text='ISO 3166-1 Two-letter code', max_length=2, unique=True, validators=[django.core.validators.RegexValidator(message='Country Alpha-2 code must be exactly 2 uppercase alphabetic characters', regex='^[A-Z]{2}$')])),
-                ('alpha3', models.CharField(help_text='ISO 3166-1 Three-letter code', max_length=3, unique=True, validators=[django.core.validators.RegexValidator(message='Country Alpha-3 code must be exactly 3 uppercase alphabetic characters', regex='^[A-Z]{3}$')])),
-                ('numeric', models.CharField(blank=True, help_text='ISO 3166-1 numeric code', max_length=3, null=True, unique=True, validators=[django.core.validators.RegexValidator(message='Country Numeric code must be exactly 3 digits', regex='^\\\\d{3}$')])),
-            ],
-            options={
-                'ordering': ('alpha2',),
-                'permissions': (('can_edit_countries', 'Can edit countries'),),
-                'verbose_name_plural': 'countries',
-            },
-        ),
         migrations.RenameField(
             model_name='donor',
             old_name='addresscountry',
@@ -663,22 +679,6 @@ class Migration(migrations.Migration):
             model_name='event',
             name='allowed_prize_countries',
             field=models.ManyToManyField(blank=True, help_text='List of countries whose residents are allowed to receive prizes (leave blank to allow all countries)', to='tracker.Country', verbose_name='Allowed Prize Countries'),
-        ),
-        migrations.CreateModel(
-            name='CountryRegion',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=128)),
-                ('country', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='tracker.Country')),
-            ],
-            options={
-                'ordering': ('country', 'name'),
-                'verbose_name': 'country region',
-            },
-        ),
-        migrations.AlterUniqueTogether(
-            name='countryregion',
-            unique_together=set([('name', 'country')]),
         ),
         migrations.AddField(
             model_name='event',
