@@ -103,7 +103,7 @@ reset_url -- the token-encoded url to redirect the user to
     You (or something pretending to be you) has requested an account on {{ domain }}. Please follow this <a href="{{ reset_url }}">link</a> to complete registering your account.
     </p>
 
-    - The GamesDoneQuick Staff
+    - Tip of the Hats Staff
 """,
     )
 
