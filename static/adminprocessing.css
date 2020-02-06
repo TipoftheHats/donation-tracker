@@ -1,5 +1,79 @@
 .disableClick {
   text-decoration: none;
-  color: #000 !important; 
+  color: #000 !important;
   pointer-events: none;
+}
+
+td {
+  padding: 5px;
+}
+
+button {
+  margin: 3px !important;
+}
+
+thead th {
+  background-color: #4E5D6C !important;
+}
+
+#id_loading {
+  text-align: center;
+}
+
+#show_new_donations {
+  visibility: hidden;
+}
+
+#comment-filters {
+  margin:auto;
+  width:auto;
+  text-align:center;
+}
+
+.donationcell {
+  max-width: 60vw;
+  overflow-wrap: break-word;
+}
+
+.donation-row.externally-processed {
+  opacity: 0.5;
+  background-color: #95a5a647;
+}
+
+.priority {
+  background-color:rgba(239, 127, 0, 0.45);
+}
+
+@media (max-width: 1920px) {
+  .donationcell, .mod-comment {
+    max-width:350px;
+    word-wrap: break-word;
+  }
+  .amount-column {
+    max-width:350px;
+  }
+  .statuscell {
+    max-width:100px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .donationcell, .mod-comment {
+    max-width:275px;
+    word-wrap: break-word;
+  }
+  .amount-column {
+    max-width:120px;
+  }
+  .statuscell {
+    max-width:75px;
+  }
+  .button-column {
+    max-width: 150px;
+    text-align:center;
+  }
+  .donor-column {
+    max-width: 200px;
+    word-wrap: break-word;
+  }
 }

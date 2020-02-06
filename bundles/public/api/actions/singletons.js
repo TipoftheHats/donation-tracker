@@ -1,42 +1,42 @@
-import $ from 'jquery';
+import HTTPUtil from '../../util/http';
 
 function onLoadMe(me) {
-    return {
-        type: 'LOAD_ME',
-        me
-    };
+  return {
+    type: 'LOAD_ME',
+    me,
+  };
 }
 
 export function fetchMe() {
-    return (dispatch) => {
+  return dispatch => {
+    dispatch({
+      type: 'MODEL_STATUS_LOADING',
+      model: {
+        type: 'me',
+      },
+    });
+    return HTTPUtil.get(`${API_ROOT}me`)
+      .then(me => {
         dispatch({
-            type: 'MODEL_STATUS_LOADING',
-            model: {
-                type: 'me',
-            }
+          type: 'MODEL_STATUS_SUCCESS',
+          model: {
+            type: 'me',
+          },
         });
-        $.get(`${API_ROOT}me`)
-            .done((me) => {
-                dispatch({
-                    type: 'MODEL_STATUS_SUCCESS',
-                    model: {
-                        type: 'me',
-                    }
-                });
-                dispatch(onLoadMe(me));
-            })
-            .fail((data) => {
-                dispatch({
-                    type: 'MODEL_STATUS_ERROR',
-                    model: {
-                        type: 'me',
-                    }
-                });
-                dispatch(onLoadMe({})); // anonymous user
-            });
-    };
+        dispatch(onLoadMe(me));
+      })
+      .catch(error => {
+        dispatch({
+          type: 'MODEL_STATUS_ERROR',
+          model: {
+            type: 'me',
+          },
+        });
+        dispatch(onLoadMe({})); // anonymous user
+      });
+  };
 }
 
 export default {
-    fetchMe,
+  fetchMe,
 };

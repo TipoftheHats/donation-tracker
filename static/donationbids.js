@@ -1,3 +1,4 @@
+/* eslint-disable */
 
 __BIDS__ = null;
 
@@ -214,5 +215,3 @@ function MegaFilter(objects, groupings, searchFields, labelCallback, detailsCall
   };
 
 } // class MegaFilter
-
-

@@ -20,8 +20,6 @@ setup(
         'django-post-office',
         'django-ajax-selects',
         'django-mptt',
-        'gdata',
-        'oauth2client',
         'psycopg2',
         'python-dateutil',
         'pytz',
@@ -41,5 +39,5 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Software Development :: Libraries :: Python Modules',
-    ]
+    ],
 )

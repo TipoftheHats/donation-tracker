@@ -1,5 +1,8 @@
-import PropTypes from 'prop-types';
 import React from 'react';
+import PropTypes from 'prop-types';
+
+import Header from '../uikit/Header';
+import Text from '../uikit/Text';
 
 export default class ErrorBoundary extends React.PureComponent {
   static propTypes = {
@@ -20,11 +23,17 @@ export default class ErrorBoundary extends React.PureComponent {
   render() {
     const { error } = this.state;
     const { verbose, children } = this.props;
-    if (error) {
-      return <span data-fail-test={verbose ? 'true' : null} className='error'>
-        Something went wrong: {error.stack.split('\n').map(l => <div>{l}</div>)}
-        </span>;
-    }
-    return <React.Fragment>{children}</React.Fragment>;
+
+    if (error == null) return children;
+
+    return (
+      <span data-fail-test={verbose ? 'true' : null} className="error">
+        <Header>Something went wrong:</Header>
+        <Text>{error.message}</Text>
+        <pre>
+          <code>{error.stack}</code>
+        </pre>
+      </span>
+    );
   }
 }

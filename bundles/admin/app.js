@@ -1,101 +1,64 @@
-import React, {Component} from 'react';
-import PropTypes from 'prop-types';
-import HTML5Backend from 'react-dnd-html5-backend';
-import {DragDropContext} from 'react-dnd';
-import {Route} from 'react-router';
-import {Link} from 'react-router-dom';
-import {connect} from 'react-redux';
+import React from 'react';
+import { Route } from 'react-router';
+import { Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import Spinner from '../public/spinner';
 import Dropdown from '../public/dropdown';
-import {actions, store, history} from '../public/api';
-import ScheduleEditor from "./schedule_editor";
+import { actions, store, history } from '../public/api';
+import ScheduleEditor from './scheduleEditor';
 
-class App extends Component {
-  static childContextTypes = {
-    STATIC_URL: PropTypes.string,
-  };
+const App = props => {
+  const { match } = props;
+  const dispatch = useDispatch();
 
-  getChildContext() {
-    return {STATIC_URL: window.STATIC_URL};
-  }
+  const { events, status } = useSelector(state => ({
+    events: state.models.event,
+    status: state.status,
+  }));
 
-  render() {
-    const {events, status, match} = this.props;
-    return (
-      <div style={{position: 'relative'}}>
-        <Link to={`${match.url}/schedule_editor`}>Schedule Editor</Link>
-        <Spinner spinning={status.event === 'loading'}>
-          <Dropdown closeOnClick={true}>
-            <div style={{
+  React.useEffect(() => {
+    dispatch(actions.singletons.fetchMe());
+  }, []);
+
+  React.useEffect(() => {
+    if (status.event !== 'success' && status.event !== 'loading') {
+      dispatch(actions.models.loadModels('event'));
+    }
+  }, [dispatch, status.event]);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <Link to={`${match.url}/schedule_editor`}>Schedule Editor</Link>
+      <Spinner spinning={status.event === 'loading'}>
+        <Dropdown closeOnClick={true}>
+          <div
+            style={{
               border: '1px solid',
               position: 'absolute',
               backgroundColor: 'white',
               minWidth: '200px',
               maxHeight: '120px',
-              overflowY: 'auto'
+              overflowY: 'auto',
             }}>
-              <ul style={{display: 'block'}}>
-                {events ? events.map((e) => {
+            <ul style={{ display: 'block' }}>
+              {events
+                ? events.map(e => {
                     return (
                       <li key={e.pk}>
                         <Link to={`${match.url}/schedule_editor/${e.pk}`}>{e.short}</Link>
                       </li>
                     );
                   })
-                  : null
-                }
-              </ul>
-            </div>
-          </Dropdown>
-        </Spinner>
-        <Route path={`${match.url}/schedule_editor/:event`} component={ScheduleEditor}/>
-      </div>
-    );
-  }
+                : null}
+            </ul>
+          </div>
+        </Dropdown>
+      </Spinner>
+      <Route path={`${match.url}/schedule_editor/:event`} component={ScheduleEditor} />
+    </div>
+  );
+};
 
-  componentWillMount() {
-    const {
-      loadModels,
-      status,
-      fetchMe,
-    } = this.props;
-    setTimeout(
-      () => {
-        if (status.event !== 'success' && status.event !== 'loading') {
-          loadModels('event');
-        }
-      },
-      1);
-    fetchMe();
-  }
-}
-
-function select(state) {
-  const {saving, status, singletons} = state;
-  const {event} = state.models;
-  return {
-    events: event,
-    saving,
-    status,
-    singletons,
-  };
-}
-
-function dispatch(dispatch) {
-  return {
-    fetchMe: () => {
-      dispatch(actions.singletons.fetchMe());
-    },
-    loadModels: (model, params, additive) => {
-      dispatch(actions.models.loadModels(model, params, additive));
-    },
-    saveModels: (models) => {
-      dispatch(actions.models.saveModels(models));
-    },
-  };
-}
-
-App = DragDropContext(HTML5Backend)(connect(select, dispatch)(App));
 App.store = store;
 App.history = history;
 

@@ -1,0 +1,33 @@
+.themeMap {
+  /* "brand" isn't really accurate here, but for now it's a placeholder to mean "not gray" */
+  --brand-primary: #5e0324;
+  --background-primary: #fff;
+  --background-secondary: #efe5e9;
+  --background-tertiary: #f9f6f7;
+  --border-primary: 1px solid var(--brand-primary);
+  --border-secondary: 1px solid var(--background-secondary);
+  --header-normal: var(--brand-primary);
+  --header-muted: #a26179;
+  --text-normal: var(--brand-primary);
+  --text-muted: #a26179;
+  --text-link: #0076a3;
+  --text-inverted: #fff;
+  --font-primary: museo-sans, 'Museo Sans', 'Museo Sans 500 Regular', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-secondary: Cubano, futura-pt, museo-sans, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  /* Note: due to how CSS properties work, these can't actually be used for
+    media queries to define breakpoints. However, they are listed here mainly
+    as a reference and for use elsewhere. When using these values for media
+    queries, please include a comment referencing the name of the variable it
+    corresponds to. This make replacing them simpler in the future. */
+  --breakpoint-full: 1200px;
+  --breakpoint-normal: 992px;
+  --breakpoint-small: 768px;
+
+  /* Base styles to apply to all components by default */
+  font-family: var(--font-primary);
+  font-weight: 400;
+  font-size: 16px;
+  color: var(--text-normal);
+  text-rendering: optimizeLegibility;
+}

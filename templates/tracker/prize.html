@@ -5,6 +5,13 @@
 {% block title %}{% trans "Prize Detail" %} -- {{ event.name|title }}{% endblock %}
 
 {% block content %}
+    {% if settings.SWEEPSTAKES_URL %}
+      <div>No donation necessary for a chance to win.
+        See <a href="{{ settings.SWEEPSTAKES_URL }}" target="_blank" rel="noopener noreferrer">sweepstakes rules</a> for
+        details and instructions.
+      </div>
+    {% endif %}
+
     <div class="title">
         <b>
             {% trans "Prize" %}:
@@ -27,20 +34,20 @@
             <a href="{{ prize.image }}">{% trans "Link" %}</a>
         {% endif %}
     </div>
-    {% if prize.get_winners %}
-        <table>
-            <th>
-                {% trans "Winner(s)" %}
-            </th>
-            {% for winner in prize.get_winners %}
+    {% for winner in prize.get_winners %}
+        {% if forloop.first %}
+            <table>
+                <th>{% trans "Winner(s)" %}</th>
+        {% endif %}
                 <tr>
-                    <td>
-                        {% donor_link winner event %}
-                    </td>
+                  <td>
+                    {% include "tracker/partials/donor_link.html" with donor=winner.donor_cache only %}
+                  </td>
                 </tr>
-            {% endfor %}
-        </table>
-    {% endif %}
+        {% if forloop.last %}
+            </table>
+        {% endif %}
+    {% endfor %}
 
     {% if prize.provider %}
         <table>
@@ -73,6 +80,12 @@
                 </tr>
             {% endfor %}
         </table>
+    {% elif prize.starttime %}
+        <div>
+            <b>Opens:</b> <span class='datetime'>{{ prize.starttime|date:"c" }}</span>
+            <i class="fa fa-arrows-h"></i>
+            <b>Closes:</b> <span class='datetime'>{{ prize.endtime|date:"c" }}</span>
+        </div>
     {% endif %}
     {% if prize.description %}
         <table>

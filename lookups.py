@@ -1,13 +1,24 @@
 from ajax_select import LookupChannel
-from django.utils.html import escape
-from django.db.models import Q
-from django.core.urlresolvers import reverse
-from django.utils.safestring import mark_safe
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+from django.urls import reverse
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
 
-from tracker.models import *
+import tracker.search_filters as filters
 import tracker.viewutil as viewutil
-import tracker.filters as filters
+from tracker.models import (
+    Bid,
+    Country,
+    CountryRegion,
+    Donation,
+    Donor,
+    Event,
+    Prize,
+    Runner,
+    SpeedRun,
+)
 
 """
 In order to use these lookups properly with the admin, you will need to install/enable the 'ajax_select'
@@ -26,6 +37,8 @@ class UserLookup(LookupChannel):
         super(UserLookup, self).__init__(*args, **kwargs)
 
     def get_query(self, q, request):
+        if not request.user.has_perm('tracker.can_search'):
+            raise PermissionDenied
         return self.model.objects.filter(username__icontains=q)
 
     def get_result(self, obj):
@@ -40,18 +53,16 @@ class UserLookup(LookupChannel):
 
 
 class CountryLookup(LookupChannel):
-    def __init__(self, *args, **kwargs):
-        self.model = Country
-        super(CountryLookup, self).__init__(*args, **kwargs)
+    model = Country
 
     def get_query(self, q, request):
         return Country.objects.filter(name__icontains=q)
 
     def get_result(self, obj):
-        return unicode(obj)
+        return str(obj)
 
     def format_match(self, obj):
-        return escape(unicode(obj))
+        return escape(str(obj))
 
     def can_add(self, user, source_model):
         # Presumably, we don't want to add countries typically
@@ -59,118 +70,107 @@ class CountryLookup(LookupChannel):
 
 
 class CountryRegionLookup(LookupChannel):
-    def __init__(self, *args, **kwargs):
-        self.model = CountryRegion
-        super(CountryRegionLookup, self).__init__(*args, **kwargs)
+    model = CountryRegion
 
     def get_query(self, q, request):
-        return CountryRegion.objects.filter(Q(name__icontains=q) | Q(country__name__icontains=q))
+        return CountryRegion.objects.filter(
+            Q(name__icontains=q) | Q(country__name__icontains=q)
+        )
 
     def get_result(self, obj):
-        return unicode(obj)
+        return str(obj)
 
     def format_match(self, obj):
-        return escape(unicode(obj))
+        return escape(str(obj))
 
 
 class GenericLookup(LookupChannel):
+    useLock = False
+    useEvent = False
+    extra_params = {}
+
+    def get_extra_params(self, request):
+        return self.extra_params
+
     def get_query(self, q, request):
         params = {'q': q}
+        params.update(self.get_extra_params(request))
         event = viewutil.get_selected_event(request)
         if event and self.useEvent:
             params['event'] = event.id
-        model = self.model
-        if hasattr(self, 'modelName'):
-            model = self.modelName
+        model = getattr(self, 'modelName', self.model)
         if self.useLock and not request.user.has_perm('tracker.can_edit_locked_events'):
             params['locked'] = False
-        return filters.run_model_query(model, params, user=request.user, mode='admin')
+        return filters.run_model_query(model, params, request.user)
 
     def get_result(self, obj):
-        return unicode(obj)
+        return str(obj)
 
     def format_match(self, obj):
-        return escape(unicode(obj))
+        return escape(str(obj))
 
     # returning the admin URL reduces the genericity of our solution a little bit, but this can be solved
     # by using distinct lookups for admin/non-admin applications (which we should do regardless since
     # non-admin search should be different)
     def format_item_display(self, obj):
-        result = u'<a href="{0}">{1}</a>'.format(reverse('admin:tracker_{0}_change'.format(
-            obj._meta.model_name), args=[obj.pk]), escape(unicode(obj)))
+        result = '<a href="{0}">{1}</a>'.format(
+            reverse(
+                'admin:tracker_{0}_change'.format(obj._meta.model_name), args=[obj.pk]
+            ),
+            escape(str(obj)),
+        )
         return mark_safe(result)
 
 
 class BidLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Bid
-        self.modelName = 'bid'
-        self.useEvent = True
-        self.useLock = True
-        super(BidLookup, self).__init__(*args, **kwargs)
+    useEvent = True
+    useLock = True
+    model = Bid
+    modelName = 'bid'
+    extra_params = {'feed': 'all'}
 
 
 class AllBidLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Bid
-        self.modelName = 'allbids'
-        self.useEvent = True
-        self.useLock = True
-        super(AllBidLookup, self).__init__(*args, **kwargs)
+    useEvent = True
+    useLock = True
+    model = Bid
+    modelName = 'allbids'
+    extra_params = {'feed': 'all'}
 
 
 class BidTargetLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Bid
-        self.modelName = 'bidtarget'
-        self.useEvent = True
-        self.useLock = True
-        super(BidTargetLookup, self).__init__(*args, **kwargs)
+    model = Bid
+    modelName = 'bidtarget'
+    useEvent = True
+    useLock = True
+    extra_params = {'feed': 'all'}
 
 
 class DonationLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Donation
-        self.useEvent = True
-        self.useLock = True
-        super(DonationLookup, self).__init__(*args, **kwargs)
+    model = Donation
+    useEvent = True
+    useLock = True
 
 
 class DonorLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Donor
-        self.useEvent = False
-        self.useLock = False
-        super(DonorLookup, self).__init__(*args, **kwargs)
+    model = Donor
 
 
 class PrizeLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Prize
-        self.useEvent = True
-        self.useLock = False
-        super(PrizeLookup, self).__init__(*args, **kwargs)
+    model = Prize
+    useEvent = True
 
 
 class RunLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = SpeedRun
-        self.useEvent = True
-        self.useLock = True
-        super(RunLookup, self).__init__(*args, **kwargs)
+    model = SpeedRun
+    useEvent = True
+    useLock = True
 
 
 class EventLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Event
-        self.useEvent = False
-        self.useLock = True
-        super(EventLookup, self).__init__(*args, **kwargs)
+    model = Event
+    useLock = True
 
 
 class RunnerLookup(GenericLookup):
-    def __init__(self, *args, **kwargs):
-        self.model = Runner
-        self.useEvent = False
-        self.useLock = False
-        super(RunnerLookup, self).__init__(*args, **kwargs)
+    model = Runner

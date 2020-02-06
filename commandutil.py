@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 
 
 class TrackerCommand(BaseCommand):
@@ -9,7 +9,7 @@ class TrackerCommand(BaseCommand):
 
     def message(self, message, verbosity_level=1):
         if self.verbosity >= verbosity_level:
-            if isinstance(message, unicode):
+            if isinstance(message, str):
                 message = message.encode('utf-8')
             print(message)
 
@@ -18,5 +18,5 @@ class TrackerCommand(BaseCommand):
             self.verbosity = options['verbosity']
         else:
             self.verbosity = 1
-        self.message("Positional arguments: {0}".format(args), 3)
-        self.message("Named arguments: {0}".format(options), 3)
+        self.message('Positional arguments: {0}'.format(args), 3)
+        self.message('Named arguments: {0}'.format(options), 3)

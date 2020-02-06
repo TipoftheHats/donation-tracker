@@ -1,6 +1,7 @@
 *.mo
 *.pyc
 *.swp
+*.sqlite
 build
 *.egg-info
 .idea
@@ -10,3 +11,4 @@ build
 node_modules/
 static/gen/
 yarn-error.log
+TEST*.xml

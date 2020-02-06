@@ -6,14 +6,13 @@
 {% endblock %}
 
 {% block head %}
-    {{ bundle.js|safe }}
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     {{ bundle.css|safe }}
     <script type="text/javascript">
       <!--
-      window.API_ROOT = '{% url 'tracker:api_v1' %}';
-      window.ROOT_PATH = '{{ root_path }}';
-      window.STATIC_URL = '{% static '' %}';
-      window.APP_NAME = 'tracker';
+      // TODO: use json_script filter once we've upgraded Django
+      Object.assign(window, {{ CONSTANTS }});
+      window.ROOT_PATH = '{{ ROOT_PATH }}';
       -->
     </script>
     <link rel="stylesheet" type="text/css" href="{% static 'main.css' %}"/>
@@ -37,7 +36,7 @@
       });
       -->
     </script>
-
+    {{ bundle.js|safe }}
 {% endblock %}
 
 {% block content %}

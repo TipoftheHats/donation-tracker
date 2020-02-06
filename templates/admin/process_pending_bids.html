@@ -12,14 +12,12 @@ td {
 }
 </style>
 
-<link href="{% static "css/ajax_select.css" %}" type="text/css" media="ajax" rel="stylesheet" />
-<script src="{% static "js/ajax_select.js" %}"></script>
-<link href="{% static "adminprocessing.css" %}" type="text/css" media="ajax" rel="stylesheet" />
+<link href="{% static "adminprocessing.css" %}" type="text/css" rel="stylesheet" />
 <script src="{% static "adminprocessing.js" %}"></script>
 
 <script>
 
-var trackerAPI = new TrackerAPI("{% settings_value "SITE_PREFIX" %}");
+var trackerAPI = new TrackerAPI({{ apiUrls }});
 
 var resultsTable;
 
@@ -106,7 +104,7 @@ function addRow(bid) {
 function runSearch() {
 
   searchParams = {
-    state : $("#selectstate").val(),
+    feed: 'pending',
     count_gte : 1, // ensure that at least one confirmed donation towards
   };
 
@@ -162,13 +160,6 @@ function runSearch() {
 
 {% block content %}
 
-<label>Bid State:</label>
-<br />
-<select id="selectstate">
-  <option value="PENDING">Pending</option>
-  <option value="DENIED">Denied</option>
-</select>
-<br />
 <button onclick="runSearch();">Refresh</button>
 
 <span id="id_loading"></span>
@@ -176,4 +167,3 @@ function runSearch() {
 <table id="id_result_set" border="1" style="margin: auto; width: auto;">
 
 {% endblock %}
-
