@@ -11,8 +11,6 @@ import tracker.randgen as randgen
 import tracker.prizemail as prizemail
 from functools import reduce
 
-from unittest import skip
-
 AuthUser = get_user_model()
 
 
@@ -46,7 +44,6 @@ class TestAutomailPrizeWinners(TransactionTestCase):
         prizes = [int(p) for p in contents.get('prize', [])]
         return event, winner, prizes
 
-    @skip("Automail test broken")
     def testAutoMail(self):
         models.Prize.objects.update(state='ACCEPTED')
         donors = list(models.Donor.objects.all())

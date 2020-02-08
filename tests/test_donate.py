@@ -7,6 +7,7 @@ import tracker.forms as forms
 import tracker.models as models
 from .util import today_noon, tomorrow_noon, long_ago_noon
 
+
 class TestDonorNameAssignment(TransactionTestCase):
     def testAliasAnonToVisibilityAnon(self):
         data = {
